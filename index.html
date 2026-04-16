@@ -9,13 +9,12 @@ body{font-family:Arial;margin:0;background:#e3f2fd}
 .header{background:#1976d2;color:#fff;padding:15px;text-align:center}
 .container{padding:15px}
 .card{background:#fff;padding:15px;border-radius:15px;margin-bottom:15px}
-.btn{padding:10px;border:none;border-radius:10px;width:100%;margin-top:5px}
+.btn{padding:10px;border:none;border-radius:10px;width:100%;margin-top:5px;cursor:pointer}
 .primary{background:#4caf50;color:#fff}
 .secondary{background:#ff9800;color:#fff}
 .tab{display:inline-block;padding:10px;background:#ccc;margin-right:5px;border-radius:10px;cursor:pointer}
 .active{background:#1976d2;color:#fff}
 input,textarea{width:100%;padding:8px;margin:5px 0;border-radius:8px;border:1px solid #ccc}
-img.avatar{width:80px;height:80px;border-radius:50%}
 </style>
 
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
@@ -24,6 +23,7 @@ img.avatar{width:80px;height:80px;border-radius:50%}
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-storage-compat.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
+
 <body>
 
 <div class="header">🏫 Portal Escolar Profissional</div>
@@ -31,13 +31,14 @@ img.avatar{width:80px;height:80px;border-radius:50%}
 
 <script>
 const firebaseConfig={
- apiKey:"AIzaSyB62sPHJ7TxqSAD0PXHHOktfQfs0Sv8FWs",
- authDomain:"portal-educacao-635cd.firebaseapp.com",
- projectId:"portal-educacao-635cd",
- storageBucket:"portal-educacao-635cd.appspot.com"
+ apiKey:"SUA_API_KEY",
+ authDomain:"SEU_DOMINIO",
+ projectId:"SEU_PROJETO",
+ storageBucket:"SEU_BUCKET"
 };
 
 firebase.initializeApp(firebaseConfig);
+
 const auth=firebase.auth();
 const db=firebase.firestore();
 const storage=firebase.storage();
@@ -53,7 +54,9 @@ function login(){
  .catch(e=>alert(e.message));
 }
 
-function logout(){auth.signOut();}
+function logout(){
+ auth.signOut();
+}
 
 async function carregarAlunos(){
  const snap=await db.collection("usuarios").where("tipo","==","aluno").get();
@@ -61,32 +64,63 @@ async function carregarAlunos(){
 }
 
 async function cadastrarAluno(){
- const cred=await auth.createUserWithEmailAndPassword(loginAluno.value,"12345678");
- await db.collection("usuarios").doc(cred.user.uid).set({
-  nome:nomeAluno.value,
-  classe:classeAluno.value,
-  email:loginAluno.value,
-  tipo:"aluno"
- });
- alert("Aluno cadastrado");
+ try{
+  const senhaPadrao="12345678";
+
+  const cred=await auth.createUserWithEmailAndPassword(loginAluno.value,senhaPadrao);
+
+  await db.collection("usuarios").doc(cred.user.uid).set({
+   nome:nomeAluno.value,
+   classe:classeAluno.value,
+   email:loginAluno.value,
+   tipo:"aluno",
+   primeiroLogin:true
+  });
+
+  alert("Aluno cadastrado com senha padrão: 12345678");
+
+  await auth.signOut();
+
+ }catch(e){
+  alert(e.message);
+ }
 }
 
 async function salvarProgresso(){
+ if(!alunoSelecionado) return alert("Selecione um aluno");
+
  await db.collection("progresso").add({
   alunoId:alunoSelecionado,
   texto:progresso.value,
   data:new Date()
  });
- alert("Salvo");
+
+ alert("Progresso salvo");
 }
 
 async function uploadMaterial(){
+ if(!alunoSelecionado) return alert("Selecione um aluno");
+
  const file=arquivo.files[0];
+ if(!file) return alert("Escolha um arquivo");
+
  const ref=storage.ref("materiais/"+alunoSelecionado+"/"+file.name);
  await ref.put(file);
+
  const url=await ref.getDownloadURL();
- await db.collection("materiais").add({alunoId:alunoSelecionado,nome:file.name,url});
- alert("Enviado");
+
+ await db.collection("materiais").add({
+  alunoId:alunoSelecionado,
+  nome:file.name,
+  url
+ });
+
+ alert("Material enviado");
+}
+
+function trocarAba(nova){
+ aba=nova;
+ render();
 }
 
 function renderTabs(){
@@ -99,17 +133,13 @@ function renderTabs(){
  </div>`;
 }
 
-function trocarAba(nova){
- aba=nova;
- render();
-}
-
 async function renderDashboard(){
  const snap=await db.collection("progresso").get();
  const total=snap.size;
 
- return `<div class='card'>
- <h3>Registros de progresso</h3>
+ return `
+ <div class='card'>
+ <h3>Total de registros: ${total}</h3>
  <canvas id='grafico'></canvas>
  </div>`;
 }
@@ -131,42 +161,50 @@ async function render(){
 }
 
  if(tipoUsuario==="prof"){
+
  await carregarAlunos();
 
  let conteudo="";
 
  if(aba==="dashboard"){
- conteudo=await renderDashboard();
+  conteudo=await renderDashboard();
  }
 
  if(aba==="alunos"){
- conteudo=`
- <div class='card'>
- <input id='nomeAluno' placeholder='Nome'>
- <input id='classeAluno' placeholder='Turma'>
- <input id='loginAluno' placeholder='Email'>
- <button class='btn primary' onclick='cadastrarAluno()'>Cadastrar</button>
- </div>
- ${alunos.map(a=>`<div class='card'>
- ${a.nome} - ${a.classe}
- <button class='btn secondary' onclick="alunoSelecionado='${a.id}'">Selecionar</button>
- </div>`).join("")}`;
+  conteudo=`
+  <div class='card'>
+  <h3>Cadastrar aluno</h3>
+  <input id='nomeAluno' placeholder='Nome'>
+  <input id='classeAluno' placeholder='Turma'>
+  <input id='loginAluno' placeholder='Email'>
+  <button class='btn primary' onclick='cadastrarAluno()'>Cadastrar</button>
+  </div>
+
+  ${alunos.map(a=>`
+   <div class='card'>
+   ${a.nome} - ${a.classe}
+   <button class='btn secondary' onclick="alunoSelecionado='${a.id}';alert('Aluno selecionado')">Selecionar</button>
+   </div>
+  `).join("")}
+  `;
  }
 
  if(aba==="materiais"){
- conteudo=alunoSelecionado?`
- <div class='card'>
- <input type='file' id='arquivo'>
- <button class='btn primary' onclick='uploadMaterial()'>Enviar</button>
- </div>`:"<div class='card'>Selecione um aluno</div>";
+  conteudo=alunoSelecionado?`
+  <div class='card'>
+  <input type='file' id='arquivo'>
+  <button class='btn primary' onclick='uploadMaterial()'>Enviar Material</button>
+  </div>
+  `:"<div class='card'>Selecione um aluno</div>";
  }
 
  if(aba==="progresso"){
- conteudo=alunoSelecionado?`
- <div class='card'>
- <textarea id='progresso'></textarea>
- <button class='btn primary' onclick='salvarProgresso()'>Salvar</button>
- </div>`:"<div class='card'>Selecione um aluno</div>";
+  conteudo=alunoSelecionado?`
+  <div class='card'>
+  <textarea id='progresso' placeholder='Descreva o progresso'></textarea>
+  <button class='btn primary' onclick='salvarProgresso()'>Salvar</button>
+  </div>
+  `:"<div class='card'>Selecione um aluno</div>";
  }
 
  app.innerHTML=`
@@ -177,26 +215,52 @@ async function render(){
  </div>`;
 
  if(aba==="dashboard"){
- const snap=await db.collection("progresso").get();
- const total=snap.size;
- new Chart(document.getElementById('grafico'),{
- type:'bar',
- data:{labels:['Progresso'],datasets:[{data:[total]}]}
- });
+  const snap=await db.collection("progresso").get();
+  const total=snap.size;
+
+  new Chart(document.getElementById('grafico'),{
+   type:'bar',
+   data:{
+    labels:['Registros'],
+    datasets:[{label:'Progresso',data:[total]}]
+   }
+  });
  }
+ }
+
+ if(tipoUsuario==="aluno"){
+  app.innerHTML=`
+  <div class='container'>
+  <button class='btn secondary' onclick='logout()'>Sair</button>
+  <div class='card'>
+  <h2>Área do Aluno</h2>
+  <p>Bem-vindo!</p>
+  </div>
+  </div>`;
  }
 }
 
 auth.onAuthStateChanged(async u=>{
  if(u){
- usuario=u;
- const doc=await db.collection("usuarios").doc(u.uid).get();
- tipoUsuario=doc.data()?.tipo||"aluno";
-}else{
- usuario=null;
- tipoUsuario=null;
-} render();
+  usuario=u;
+
+  const doc=await db.collection("usuarios").doc(u.uid).get();
+
+  if(doc.exists){
+   tipoUsuario=doc.data().tipo;
+  }else{
+   tipoUsuario="aluno";
+  }
+
+ }else{
+  usuario=null;
+  tipoUsuario=null;
+ }
+
+ render();
 });
+
+render();
 </script>
 
 </body>
