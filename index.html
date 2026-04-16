@@ -106,6 +106,36 @@ auth.onAuthStateChanged(async user=>{
   render();
 });
 
+function abrirSecao(tipo){
+  const secao = document.getElementById('secao');
+
+  if(tipo === 'alunos'){
+    secao.innerHTML = `
+      <div class="card">
+        <h3>👨‍🎓 Alunos cadastrados</h3>
+        <p>Aqui você poderá adicionar e visualizar alunos.</p>
+      </div>`;
+  }
+
+  if(tipo === 'materiais'){
+    secao.innerHTML = `
+      <div class="card">
+        <h3>📎 Materiais</h3>
+        <input type="file">
+        <button class="btn primary">Enviar material</button>
+      </div>`;
+  }
+
+  if(tipo === 'progresso'){
+    secao.innerHTML = `
+      <div class="card">
+        <h3>📊 Progresso dos alunos</h3>
+        <textarea placeholder="Registrar evolução..."></textarea>
+        <button class="btn primary">Salvar</button>
+      </div>`;
+  }
+}
+
 function render(){
   const app = document.getElementById("app");
 
@@ -150,6 +180,12 @@ function render(){
           <div class="card">
             <h2>👩‍🏫 Área do Professor</h2>
             <p>Gerenciar alunos, materiais e progresso</p>
+
+            <button class="btn primary" onclick="abrirSecao('alunos')">👨‍🎓 Gerenciar Alunos</button>
+            <button class="btn primary" onclick="abrirSecao('materiais')">📎 Materiais</button>
+            <button class="btn primary" onclick="abrirSecao('progresso')">📊 Progresso</button>
+
+            <div id="secao"></div>
           </div>
         </div>
       `;
