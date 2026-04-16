@@ -45,6 +45,7 @@ firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 
 let tela = "login";
+let tipoUsuario = null;
 
 function login(){
   const email = document.getElementById("email").value;
@@ -88,9 +89,20 @@ function logout(){
   });
 }
 
-auth.onAuthStateChanged(user=>{
-  if(user){ tela="home"; }
-  else tela="login";
+auth.onAuthStateChanged(async user=>{
+  if(user){
+    const email = user.email;
+
+    if(email === "prof@escola.com"){
+      tipoUsuario = "prof";
+    } else {
+      tipoUsuario = "aluno";
+    }
+
+    tela="home";
+  } else {
+    tela="login";
+  }
   render();
 });
 
@@ -130,15 +142,33 @@ function render(){
   }
 
   if(tela === "home"){
-    app.innerHTML = `
-      <div class="container">
-        <button class="btn secondary" onclick="logout()">🚪 Sair</button>
-        <div class="card">
-          <h2>🎉 Bem-vindo ao Portal</h2>
-          <p>Login realizado com sucesso!</p>
+
+    if(tipoUsuario === "prof"){
+      app.innerHTML = `
+        <div class="container">
+          <button class="btn secondary" onclick="logout()">🚪 Sair</button>
+          <div class="card">
+            <h2>👩‍🏫 Área do Professor</h2>
+            <p>Gerenciar alunos, materiais e progresso</p>
+          </div>
         </div>
-      </div>
-    `;
+      `;
+      return;
+    }
+
+    if(tipoUsuario === "aluno"){
+      app.innerHTML = `
+        <div class="container">
+          <button class="btn secondary" onclick="logout()">🚪 Sair</button>
+          <div class="card">
+            <h2>👨‍👩‍👧 Área da Família</h2>
+            <p>Acompanhar atividades e progresso</p>
+          </div>
+        </div>
+      `;
+      return;
+    }
+
   }
 }
 </script>
