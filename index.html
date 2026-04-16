@@ -3,19 +3,93 @@
 <head>
   <meta charset="UTF-8">
   <title>Portal Educacional Inclusivo</title>
+
   <style>
-    body { font-family: Arial; background: #e3f2fd; padding: 20px; }
-    .card { background: white; padding: 15px; border-radius: 15px; margin-bottom: 15px; }
-    input, button { padding: 10px; margin: 5px 0; width: 100%; }
-    img { width: 80px; border-radius: 10px; margin: 5px; }
+    body {
+      font-family: Arial;
+      background: #e3f2fd;
+      margin: 0;
+      padding: 0;
+    }
+
+    .header {
+      background: #2196f3;
+      color: white;
+      padding: 15px;
+      text-align: center;
+      font-size: 20px;
+      font-weight: bold;
+    }
+
+    .container {
+      padding: 15px;
+    }
+
+    .card {
+      background: white;
+      padding: 15px;
+      border-radius: 20px;
+      margin-bottom: 15px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    }
+
+    .btn {
+      padding: 15px;
+      border: none;
+      border-radius: 15px;
+      font-size: 16px;
+      margin-top: 10px;
+      width: 100%;
+      cursor: pointer;
+    }
+
+    .primary { background: #4caf50; color: white; }
+    .secondary { background: #ff9800; color: white; }
+    .audio { background: #9c27b0; color: white; }
+
+    input {
+      padding: 12px;
+      margin: 5px 0;
+      width: 100%;
+      border-radius: 10px;
+      border: 1px solid #ccc;
+      font-size: 16px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+    }
+
+    img {
+      width: 100%;
+      border-radius: 15px;
+    }
   </style>
+
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 </head>
 <body>
 
-<div id="app"></div>
+<div class="header">📚 Portal Educacional <button onclick="logout()" style="float:right;background:#f44336;border:none;color:white;padding:8px 12px;border-radius:10px;cursor:pointer;">Sair</button></div>
+<div id="app" class="container"></div>
 
 <script>
-let alunos = JSON.parse(localStorage.getItem("alunos")) || [];
+const firebaseConfig = {
+  apiKey: "AIzaSyB62sPHJ7TxqSAD0PXHHOktfQfs0Sv8FWs",
+  authDomain: "portal-educacao-635cd.firebaseapp.com",
+  projectId: "portal-educacao-635cd",
+  storageBucket: "portal-educacao-635cd.firebasestorage.app",
+  messagingSenderId: "67969011586",
+  appId: "1:67969011586:web:26e169d4f5eefd2dfb099b"
+};
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+
+let alunos = [];
 let usuarioLogado = null;
 
 function falar(texto) {
@@ -23,8 +97,30 @@ function falar(texto) {
   speechSynthesis.speak(msg);
 }
 
-function salvar() {
-  localStorage.setItem("alunos", JSON.stringify(alunos));
+async function carregarAlunos() {
+  const snapshot = await db.collection("alunos").get();
+  alunos = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  render();
+}
+
+async function adicionarAluno() {
+  const nome = document.getElementById("nome").value;
+  const login = document.getElementById("loginF").value;
+  const senha = document.getElementById("senhaF").value;
+
+  await db.collection("alunos").add({ nome, login, senha, fotos: [] });
+  carregarAlunos();
+}
+
+async function adicionarFoto(id, input) {
+  const file = input.files[0];
+  const url = URL.createObjectURL(file);
+
+  const aluno = alunos.find(a => a.id === id);
+  aluno.fotos.push(url);
+
+  await db.collection("alunos").doc(id).update({ fotos: aluno.fotos });
+  carregarAlunos();
 }
 
 function login() {
@@ -46,21 +142,8 @@ function login() {
   }
 }
 
-function adicionarAluno() {
-  const nome = document.getElementById("nome").value;
-  const loginF = document.getElementById("loginF").value;
-  const senhaF = document.getElementById("senhaF").value;
-
-  alunos.push({ nome, login: loginF, senha: senhaF, fotos: [] });
-  salvar();
-  render();
-}
-
-function adicionarFoto(index, input) {
-  const file = input.files[0];
-  const url = URL.createObjectURL(file);
-  alunos[index].fotos.push(url);
-  salvar();
+function logout() {
+  usuarioLogado = null;
   render();
 }
 
@@ -70,10 +153,10 @@ function render() {
   if (!usuarioLogado) {
     app.innerHTML = `
       <div class="card">
-        <h2>🔐 Login</h2>
+        <h2>🔐 Entrar</h2>
         <input id="user" placeholder="Usuário">
         <input id="pass" type="password" placeholder="Senha">
-        <button onclick="login()">Entrar</button>
+        <button class="btn primary" onclick="login()">Entrar</button>
       </div>`;
     return;
   }
@@ -84,16 +167,16 @@ function render() {
         <h2>👩‍🏫 Professor</h2>
         <input id="nome" placeholder="Nome do aluno">
         <input id="loginF" placeholder="Login da família">
-        <input id="senhaF" placeholder="Senha da família">
-        <button onclick="adicionarAluno()">Adicionar</button>
+        <input id="senhaF" placeholder="Senha">
+        <button class="btn primary" onclick="adicionarAluno()">➕ Adicionar aluno</button>
       </div>
 
-      ${alunos.map((a, i) => `
+      ${alunos.map(a => `
         <div class="card">
           <h3 onclick="falar('${a.nome}')">👦 ${a.nome}</h3>
-          <input type="file" onchange="adicionarFoto(${i}, this)">
-          <div>
-            ${a.fotos.map(f => `<img src="${f}">`).join("")}
+          <input type="file" onchange="adicionarFoto('${a.id}', this)">
+          <div class="grid">
+            ${(a.fotos || []).map(f => `<img src="${f}">`).join("")}
           </div>
         </div>
       `).join("")}
@@ -105,15 +188,15 @@ function render() {
   app.innerHTML = `
     <div class="card">
       <h2 onclick="falar('${a.nome}')">👨‍👩‍👧 ${a.nome}</h2>
-      <button onclick="falar('Veja suas atividades')">🔊 Ouvir</button>
-      <div>
-        ${a.fotos.map(f => `<img src="${f}">`).join("")}
+      <button class="btn audio" onclick="falar('Veja suas atividades')">🔊 Ouvir</button>
+      <div class="grid">
+        ${(a.fotos || []).map(f => `<img src="${f}">`).join("")}
       </div>
     </div>
   `;
 }
 
-render();
+carregarAlunos();
 </script>
 
 </body>
