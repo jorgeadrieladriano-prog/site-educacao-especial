@@ -14,7 +14,7 @@ body{font-family:Arial;margin:0;background:#e3f2fd}
 .btn{padding:12px;border:none;border-radius:12px;width:100%;margin-top:8px}
 .primary{background:#4caf50;color:#fff}
 .secondary{background:#ff9800;color:#fff}
-input,textarea{width:100%;padding:10px;margin:5px 0;border-radius:10px;border:1px solid #ccc}
+input,textarea,select{width:100%;padding:10px;margin:5px 0;border-radius:10px;border:1px solid #ccc}
 </style>
 
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
@@ -43,7 +43,8 @@ const storage=firebase.storage();
 let tela="login";
 let tipoUsuario=null;
 let usuario=null;
-let precisaTrocarSenha=false;
+let alunos=[];
+let alunoSelecionado=null;
 
 function login(){
  auth.signInWithEmailAndPassword(user.value,pass.value)
@@ -52,9 +53,9 @@ function login(){
 
 function logout(){auth.signOut();}
 
-function recuperarSenha(){
- auth.sendPasswordResetEmail(emailRec.value)
- .then(()=>alert("Email enviado"));
+async function carregarAlunos(){
+ const snap=await db.collection("usuarios").where("tipo","==","aluno").get();
+ alunos=snap.docs.map(d=>({id:d.id,...d.data()}));
 }
 
 async function cadastrarAluno(){
@@ -66,60 +67,56 @@ async function cadastrarAluno(){
  const cred=await auth.createUserWithEmailAndPassword(email,senha);
 
  await db.collection("usuarios").doc(cred.user.uid).set({
-  nome,classe,email,tipo:"aluno",precisaTrocarSenha:true
+  nome,classe,email,tipo:"aluno"
  });
 
- alert("Aluno criado!");
+ alert("Aluno criado");
+ location.reload();
+}
+
+function selecionarAluno(id){
+ alunoSelecionado=id;
+ render();
 }
 
 async function salvarProgresso(){
  const texto=progresso.value;
  await db.collection("progresso").add({
-  userId:usuario.uid,
+  alunoId:alunoSelecionado,
   texto,
   data:new Date()
  });
  alert("Salvo!");
+ render();
 }
 
 async function uploadMaterial(){
  const file=arquivo.files[0];
- const ref=storage.ref("materiais/"+usuario.uid+"/"+file.name);
+ const ref=storage.ref("materiais/"+alunoSelecionado+"/"+file.name);
  await ref.put(file);
  const url=await ref.getDownloadURL();
 
  await db.collection("materiais").add({
-  userId:usuario.uid,
+  alunoId:alunoSelecionado,
   nome:file.name,
   url
  });
- alert("Arquivo enviado!");
+ alert("Enviado!");
+ render();
 }
 
-async function carregarDadosAluno(){
- const progSnap=await db.collection("progresso").where("userId","==",usuario.uid).get();
- const matSnap=await db.collection("materiais").where("userId","==",usuario.uid).get();
+async function verDadosAluno(id){
+ const progSnap=await db.collection("progresso").where("alunoId","==",id).get();
+ const matSnap=await db.collection("materiais").where("alunoId","==",id).get();
 
- const progresso=progSnap.docs.map(d=>d.data().texto).join("<br>");
+ const progresso=progSnap.docs.map(d=>"• "+d.data().texto).join("<br>");
  const materiais=matSnap.docs.map(d=>`<a href='${d.data().url}' target='_blank'>📎 ${d.data().nome}</a>`).join("<br>");
 
- document.getElementById("dadosAluno").innerHTML=`
- <div class='card'><h3>📊 Progresso</h3>${progresso}</div>
- <div class='card'><h3>📂 Materiais</h3>${materiais}</div>`;
+ return `<div class='card'><b>Progresso:</b><br>${progresso||"Sem dados"}</div>
+ <div class='card'><b>Materiais:</b><br>${materiais||"Sem arquivos"}</div>`;
 }
 
-function trocarSenha(){
- const nova=novaSenha.value;
- if(nova.length<8){alert("mínimo 8 caracteres");return}
-
- usuario.updatePassword(nova).then(async ()=>{
-  await db.collection("usuarios").doc(usuario.uid).update({precisaTrocarSenha:false});
-  precisaTrocarSenha=false;
-  render();
- });
-}
-
-function render(){
+async function render(){
  const app=document.getElementById("app");
 
  if(tela==="login"){
@@ -130,69 +127,82 @@ function render(){
  <input id="user" placeholder="Email">
  <input id="pass" type="password" placeholder="Senha">
  <button class="btn primary" onclick="login()">Entrar</button>
- <button class="btn" onclick="tela='recuperar';render()">Esqueci senha</button>
- </div></div>`;
- return;
- }
-
- if(tela==="recuperar"){
- app.innerHTML=`
- <div class="container"><div class="card">
- <input id="emailRec" placeholder="Email">
- <button class="btn primary" onclick="recuperarSenha()">Enviar</button>
- <button class="btn secondary" onclick="tela='login';render()">Voltar</button>
- </div></div>`;
- return;
- }
-
- if(precisaTrocarSenha){
- app.innerHTML=`
- <div class="container"><div class="card">
- <h2>🔑 Trocar senha</h2>
- <input id="novaSenha" type="password">
- <button class="btn primary" onclick="trocarSenha()">Salvar</button>
  </div></div>`;
  return;
  }
 
  if(tipoUsuario==="prof"){
+ await carregarAlunos();
+
+ let listaHTML = alunos.map(a=>
+ `<div class='card'>
+ ${a.nome} - ${a.classe}
+ <button class='btn secondary' onclick="selecionarAluno('${a.id}')">Selecionar</button>
+ </div>`).join("");
+
+ let areaAluno="";
+
+ if(alunoSelecionado){
+ areaAluno=`
+ <div class='card'>
+ <h3>Aluno selecionado</h3>
+ <textarea id='progresso' placeholder='Digite progresso'></textarea>
+ <button class='btn primary' onclick='salvarProgresso()'>Salvar progresso</button>
+
+ <input type='file' id='arquivo'>
+ <button class='btn primary' onclick='uploadMaterial()'>Enviar material</button>
+ </div>
+
+ ${await verDadosAluno(alunoSelecionado)}
+ `;
+ }
+
  app.innerHTML=`
  <div class="container">
  <button class="btn secondary" onclick="logout()">Sair</button>
+
  <div class="card">
- <h2>👩‍🏫 Professor</h2>
+ <h2>➕ Cadastrar aluno</h2>
  <input id="nomeAluno" placeholder="Nome">
  <input id="classeAluno" placeholder="Turma">
  <input id="loginAluno" placeholder="Email">
  <button class="btn primary" onclick="cadastrarAluno()">Cadastrar</button>
- </div></div>`;
+ </div>
+
+ <div class="card">
+ <h2>👨‍🎓 Alunos</h2>
+ ${listaHTML}
+ </div>
+
+ ${areaAluno}
+ </div>`;
+
  return;
  }
 
  if(tipoUsuario==="aluno"){
+ const progSnap=await db.collection("progresso").where("alunoId","==",usuario.uid).get();
+ const matSnap=await db.collection("materiais").where("alunoId","==",usuario.uid).get();
+
+ const progresso=progSnap.docs.map(d=>"• "+d.data().texto).join("<br>");
+ const materiais=matSnap.docs.map(d=>`<a href='${d.data().url}' target='_blank'>📎 ${d.data().nome}</a>`).join("<br>");
+
  app.innerHTML=`
  <div class="container">
  <button class="btn secondary" onclick="logout()">Sair</button>
- <div id="dadosAluno"></div>
- <textarea id="progresso" placeholder="Registrar progresso"></textarea>
- <button class="btn primary" onclick="salvarProgresso()">Salvar progresso</button>
- <input type="file" id="arquivo">
- <button class="btn primary" onclick="uploadMaterial()">Enviar material</button>
+ <div class='card'><b>Progresso:</b><br>${progresso||"Sem dados"}</div>
+ <div class='card'><b>Materiais:</b><br>${materiais||"Sem arquivos"}</div>
  </div>`;
-
- carregarDadosAluno();
  }
 }
 
 auth.onAuthStateChanged(async u=>{
  if(u){
-  usuario=u;
-  const doc=await db.collection("usuarios").doc(u.uid).get();
-  const data=doc.data();
-
-  tipoUsuario=data?.tipo||"aluno";
-  precisaTrocarSenha=data?.precisaTrocarSenha;
-  tela="home";
+ usuario=u;
+ const doc=await db.collection("usuarios").doc(u.uid).get();
+ const data=doc.data();
+ tipoUsuario=data?.tipo || (u.email==="prof@escola.com"?"prof":"aluno");
+ tela="home";
  }else tela="login";
  render();
 });
