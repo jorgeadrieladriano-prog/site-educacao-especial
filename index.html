@@ -6,19 +6,55 @@
 
   <style>
     body { font-family: Arial; background: #e3f2fd; margin: 0; }
-    .header { background:#2196f3; color:#fff; padding:15px; font-weight:bold; text-align:center; }
-    .header button{ float:right; background:#f44336; border:none; color:#fff; padding:8px 12px; border-radius:10px; }
+
+    .header { background:#2196f3; color:#fff; padding:15px; text-align:center; font-weight:bold; }
+
+    .banner-container {
+      position: relative;
+    }
+
+    .banner {
+      width:100%;
+      height:300px;
+      object-fit:cover;
+    }
+
+    .login-popup {
+      position:absolute;
+      top:50%;
+      left:50%;
+      transform:translate(-50%, -50%);
+      background:white;
+      padding:20px;
+      border-radius:20px;
+      box-shadow:0 4px 15px rgba(0,0,0,0.2);
+      width:280px;
+      transition:0.3s;
+    }
+
+    .login-popup.minimized {
+      height:50px;
+      overflow:hidden;
+      cursor:pointer;
+    }
+
     .container { padding:15px; }
+
     .card { background:#fff; padding:15px; border-radius:20px; margin-bottom:15px; box-shadow:0 4px 10px rgba(0,0,0,.1);}    
+
     .btn { padding:12px; border:none; border-radius:12px; width:100%; margin-top:8px; }
     .primary{ background:#4caf50; color:#fff; }
     .secondary{ background:#ff9800; color:#fff; }
     .audio{ background:#9c27b0; color:#fff; }
+
     input { width:100%; padding:10px; margin:5px 0; border-radius:10px; border:1px solid #ccc; }
+
     .grid{ display:grid; grid-template-columns:repeat(2,1fr); gap:8px; }
+
     img{ width:100%; border-radius:10px; }
+
     .section{ margin-top:10px; padding:10px; background:#f1f8ff; border-radius:10px; }
-    .banner { width:100%; border-radius:15px; margin-bottom:15px; }
+
   </style>
 
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
@@ -26,8 +62,8 @@
 </head>
 <body>
 
-<div class="header">📚 Portal Educacional <button onclick="logout()">Sair</button></div>
-<div id="app" class="container"></div>
+<div class="header">📚 Portal Educacional</div>
+<div id="app"></div>
 
 <script>
 const firebaseConfig = {
@@ -44,6 +80,12 @@ const db = firebase.firestore();
 
 let alunos = [];
 let usuarioLogado = null;
+let loginMin = false;
+
+function toggleLogin(){
+  loginMin = !loginMin;
+  render();
+}
 
 function falar(t){ speechSynthesis.speak(new SpeechSynthesisUtterance(t)); }
 function logout(){ usuarioLogado=null; render(); }
@@ -54,47 +96,14 @@ async function carregarAlunos(){
   render();
 }
 
-async function adicionarAluno(){
-  await db.collection("alunos").add({
-    nome: nomeI.value,
-    login: loginF.value,
-    senha: senhaF.value,
-    fotos:[],
-    materiais:[],
-    progresso:[]
-  });
-  carregarAlunos();
-}
-
-async function addProgresso(id){
-  const texto = prompt("Descreva o progresso do aluno:");
-  if(!texto) return;
-  const a = alunos.find(x=>x.id===id);
-  a.progresso.push(texto);
-  await db.collection("alunos").doc(id).update({progresso:a.progresso});
-  carregarAlunos();
-}
-
-async function addFoto(id,input){
-  const url = URL.createObjectURL(input.files[0]);
-  const a = alunos.find(x=>x.id===id);
-  a.fotos.push(url);
-  await db.collection("alunos").doc(id).update({fotos:a.fotos});
-  carregarAlunos();
-}
-
-async function addMaterial(id,input){
-  const file = input.files[0];
-  const url = URL.createObjectURL(file);
-  const a = alunos.find(x=>x.id===id);
-  a.materiais.push({nome:file.name,url});
-  await db.collection("alunos").doc(id).update({materiais:a.materiais});
-  carregarAlunos();
-}
-
 function login(){
-  const u=user.value, p=pass.value;
-  if(u==="prof"&&p==="123"){ usuarioLogado={tipo:"prof"}; render(); return; }
+  const u=document.getElementById("user").value;
+  const p=document.getElementById("pass").value;
+
+  if(u==="prof"&&p==="123"){
+    usuarioLogado={tipo:"prof"}; render(); return;
+  }
+
   const fam = alunos.find(a=>a.login===u&&a.senha===p);
   if(fam){ usuarioLogado={tipo:"fam",aluno:fam}; render(); }
   else alert("Login inválido");
@@ -105,72 +114,38 @@ function render(){
 
   if(!usuarioLogado){
     app.innerHTML=`
-      <img class="banner" src="https://images.unsplash.com/photo-1588072432836-e10032774350">
-      <div class="card">
-        <h2>🔐 Login</h2>
-        <input id="user" placeholder="Usuário">
-        <input id="pass" type="password" placeholder="Senha">
-        <button class="btn primary" onclick="login()">Entrar</button>
-      </div>`; return;
+      <div class="banner-container">
+        <img class="banner" src="https://images.unsplash.com/photo-1588072432836-e10032774350">
+
+        <div class="login-popup ${loginMin ? 'minimized' : ''}" onclick="${loginMin ? 'toggleLogin()' : ''}">
+          <h3 onclick="toggleLogin()">🔐 Login</h3>
+
+          ${!loginMin ? `
+            <input id="user" placeholder="Usuário">
+            <input id="pass" type="password" placeholder="Senha">
+            <button class="btn primary" onclick="login()">Entrar</button>
+          ` : ''}
+        </div>
+      </div>
+    `;
+    return;
   }
 
   if(usuarioLogado.tipo==="prof"){
-    app.innerHTML=`
-      <div class="card">
-        <h2>👩‍🏫 Professor</h2>
-        <input id="nomeI" placeholder="Nome do aluno">
-        <input id="loginF" placeholder="Login família">
-        <input id="senhaF" placeholder="Senha">
-        <button class="btn primary" onclick="adicionarAluno()">➕ Adicionar</button>
-      </div>
-
-      ${alunos.map(a=>`
-        <div class="card">
-          <h3 onclick="falar('${a.nome}')">👦 ${a.nome}</h3>
-
-          <div class="section">
-            <strong>📊 Progresso</strong>
-            <button class="btn secondary" onclick="addProgresso('${a.id}')">➕ Registrar progresso</button>
-            ${(a.progresso||[]).map(p=>`<p>⭐ ${p}</p>`).join("")}
-          </div>
-
-          <div class="section">
-            <strong>📸 Fotos</strong>
-            <input type="file" accept="image/*" onchange="addFoto('${a.id}',this)">
-            <div class="grid">${(a.fotos||[]).map(f=>`<img src="${f}">`).join("")}</div>
-          </div>
-
-          <div class="section">
-            <strong>📎 Materiais</strong>
-            <input type="file" onchange="addMaterial('${a.id}',this)">
-            ${(a.materiais||[]).map(m=>`<p>📄 <a href="${m.url}" target="_blank">${m.nome}</a></p>`).join("")}
-          </div>
-        </div>
-      `).join("")}
-    `; return;
+    app.innerHTML=`<div class="container">
+      <button class="btn secondary" onclick="logout()">🚪 Sair</button>
+      <div class="card"><h2>Área do Professor</h2></div>
+    </div>`;
+    return;
   }
 
   const a = usuarioLogado.aluno;
-  app.innerHTML=`
+  app.innerHTML=`<div class="container">
+    <button class="btn secondary" onclick="logout()">🚪 Sair</button>
     <div class="card">
       <h2 onclick="falar('${a.nome}')">👨‍👩‍👧 ${a.nome}</h2>
-      <button class="btn audio" onclick="falar('Veja suas atividades')">🔊 Ouvir</button>
-
-      <div class="section">
-        <strong>📊 Progresso</strong>
-        ${(a.progresso||[]).map(p=>`<p>⭐ ${p}</p>`).join("")}
-      </div>
-
-      <div class="section">
-        <strong>📸 Fotos</strong>
-        <div class="grid">${(a.fotos||[]).map(f=>`<img src="${f}">`).join("")}</div>
-      </div>
-
-      <div class="section">
-        <strong>📎 Materiais</strong>
-        ${(a.materiais||[]).map(m=>`<p>📄 <a href="${m.url}" target="_blank">${m.nome}</a></p>`).join("")}
-      </div>
-    </div>`;
+    </div>
+  </div>`;
 }
 
 carregarAlunos();
