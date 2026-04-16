@@ -24,25 +24,25 @@ input,textarea,select{width:100%;padding:10px;margin:5px 0;border-radius:10px;bo
 </head>
 <body>
 
-<div class="header">📚 Portal Educacional</div>
+<div class="header">📚 Portal Educacional Completo</div>
 <div id="app"></div>
 
 <script>
-const firebaseConfig = {
+const firebaseConfig={
  apiKey:"AIzaSyB62sPHJ7TxqSAD0PXHHOktfQfs0Sv8FWs",
  authDomain:"portal-educacao-635cd.firebaseapp.com",
  projectId:"portal-educacao-635cd",
  storageBucket:"portal-educacao-635cd.appspot.com"
 };
-
 firebase.initializeApp(firebaseConfig);
+
 const auth=firebase.auth();
 const db=firebase.firestore();
 const storage=firebase.storage();
 
-let tela="login";
-let tipoUsuario=null;
 let usuario=null;
+let tipoUsuario=null;
+let tela="login";
 let alunos=[];
 let alunoSelecionado=null;
 
@@ -67,26 +67,23 @@ async function cadastrarAluno(){
  const cred=await auth.createUserWithEmailAndPassword(email,senha);
 
  await db.collection("usuarios").doc(cred.user.uid).set({
-  nome,classe,email,tipo:"aluno"
+  nome,classe,email,tipo:"aluno",primeiroLogin:true
  });
 
- alert("Aluno criado");
- location.reload();
+ alert("Aluno criado!");
 }
 
-function selecionarAluno(id){
+async function selecionarAluno(id){
  alunoSelecionado=id;
  render();
 }
 
 async function salvarProgresso(){
- const texto=progresso.value;
  await db.collection("progresso").add({
   alunoId:alunoSelecionado,
-  texto,
+  texto:progresso.value,
   data:new Date()
  });
- alert("Salvo!");
  render();
 }
 
@@ -101,19 +98,17 @@ async function uploadMaterial(){
   nome:file.name,
   url
  });
- alert("Enviado!");
  render();
 }
 
 async function verDadosAluno(id){
- const progSnap=await db.collection("progresso").where("alunoId","==",id).get();
- const matSnap=await db.collection("materiais").where("alunoId","==",id).get();
+ const prog=await db.collection("progresso").where("alunoId","==",id).get();
+ const mat=await db.collection("materiais").where("alunoId","==",id).get();
 
- const progresso=progSnap.docs.map(d=>"• "+d.data().texto).join("<br>");
- const materiais=matSnap.docs.map(d=>`<a href='${d.data().url}' target='_blank'>📎 ${d.data().nome}</a>`).join("<br>");
-
- return `<div class='card'><b>Progresso:</b><br>${progresso||"Sem dados"}</div>
- <div class='card'><b>Materiais:</b><br>${materiais||"Sem arquivos"}</div>`;
+ return `
+ <div class='card'><b>Progresso:</b><br>${prog.docs.map(d=>"• "+d.data().texto).join("<br>")||"Sem dados"}</div>
+ <div class='card'><b>Materiais:</b><br>${mat.docs.map(d=>`<a href='${d.data().url}' target='_blank'>📎 ${d.data().nome}</a>`).join("<br>")||"Sem arquivos"}</div>
+ `;
 }
 
 async function render(){
@@ -121,12 +116,12 @@ async function render(){
 
  if(tela==="login"){
  app.innerHTML=`
- <div style="position:relative">
- <img class="banner" src="https://images.unsplash.com/photo-1588072432836-e10032774350">
- <div class="login-popup">
- <input id="user" placeholder="Email">
- <input id="pass" type="password" placeholder="Senha">
- <button class="btn primary" onclick="login()">Entrar</button>
+ <div style='position:relative'>
+ <img class='banner' src='https://images.unsplash.com/photo-1588072432836-e10032774350'>
+ <div class='login-popup'>
+ <input id='user' placeholder='Email'>
+ <input id='pass' type='password' placeholder='Senha'>
+ <button class='btn primary' onclick='login()'>Entrar</button>
  </div></div>`;
  return;
  }
@@ -134,8 +129,8 @@ async function render(){
  if(tipoUsuario==="prof"){
  await carregarAlunos();
 
- let listaHTML = alunos.map(a=>
- `<div class='card'>
+ let lista=alunos.map(a=>`
+ <div class='card'>
  ${a.nome} - ${a.classe}
  <button class='btn secondary' onclick="selecionarAluno('${a.id}')">Selecionar</button>
  </div>`).join("");
@@ -145,12 +140,15 @@ async function render(){
  if(alunoSelecionado){
  areaAluno=`
  <div class='card'>
- <h3>Aluno selecionado</h3>
- <textarea id='progresso' placeholder='Digite progresso'></textarea>
- <button class='btn primary' onclick='salvarProgresso()'>Salvar progresso</button>
+ <h3>📊 Progresso</h3>
+ <textarea id='progresso'></textarea>
+ <button class='btn primary' onclick='salvarProgresso()'>Salvar</button>
+ </div>
 
+ <div class='card'>
+ <h3>📂 Materiais</h3>
  <input type='file' id='arquivo'>
- <button class='btn primary' onclick='uploadMaterial()'>Enviar material</button>
+ <button class='btn primary' onclick='uploadMaterial()'>Enviar</button>
  </div>
 
  ${await verDadosAluno(alunoSelecionado)}
@@ -158,40 +156,36 @@ async function render(){
  }
 
  app.innerHTML=`
- <div class="container">
- <button class="btn secondary" onclick="logout()">Sair</button>
+ <div class='container'>
+ <button class='btn secondary' onclick='logout()'>Sair</button>
 
- <div class="card">
+ <div class='card'>
  <h2>➕ Cadastrar aluno</h2>
- <input id="nomeAluno" placeholder="Nome">
- <input id="classeAluno" placeholder="Turma">
- <input id="loginAluno" placeholder="Email">
- <button class="btn primary" onclick="cadastrarAluno()">Cadastrar</button>
+ <input id='nomeAluno' placeholder='Nome'>
+ <input id='classeAluno' placeholder='Turma'>
+ <input id='loginAluno' placeholder='Email'>
+ <button class='btn primary' onclick='cadastrarAluno()'>Cadastrar</button>
  </div>
 
- <div class="card">
- <h2>👨‍🎓 Alunos</h2>
- ${listaHTML}
+ <div class='card'>
+ <h2>👨‍🎓 Lista de alunos</h2>
+ ${lista}
  </div>
 
  ${areaAluno}
  </div>`;
-
  return;
  }
 
  if(tipoUsuario==="aluno"){
- const progSnap=await db.collection("progresso").where("alunoId","==",usuario.uid).get();
- const matSnap=await db.collection("materiais").where("alunoId","==",usuario.uid).get();
-
- const progresso=progSnap.docs.map(d=>"• "+d.data().texto).join("<br>");
- const materiais=matSnap.docs.map(d=>`<a href='${d.data().url}' target='_blank'>📎 ${d.data().nome}</a>`).join("<br>");
+ const prog=await db.collection("progresso").where("alunoId","==",usuario.uid).get();
+ const mat=await db.collection("materiais").where("alunoId","==",usuario.uid).get();
 
  app.innerHTML=`
- <div class="container">
- <button class="btn secondary" onclick="logout()">Sair</button>
- <div class='card'><b>Progresso:</b><br>${progresso||"Sem dados"}</div>
- <div class='card'><b>Materiais:</b><br>${materiais||"Sem arquivos"}</div>
+ <div class='container'>
+ <button class='btn secondary' onclick='logout()'>Sair</button>
+ <div class='card'><b>Progresso:</b><br>${prog.docs.map(d=>"• "+d.data().texto).join("<br>")||"Sem dados"}</div>
+ <div class='card'><b>Materiais:</b><br>${mat.docs.map(d=>`<a href='${d.data().url}' target='_blank'>📎 ${d.data().nome}</a>`).join("<br>")||"Sem arquivos"}</div>
  </div>`;
  }
 }
@@ -200,13 +194,11 @@ auth.onAuthStateChanged(async u=>{
  if(u){
  usuario=u;
  const doc=await db.collection("usuarios").doc(u.uid).get();
- const data=doc.data();
- tipoUsuario=data?.tipo || (u.email==="prof@escola.com"?"prof":"aluno");
+ tipoUsuario=doc.data()?.tipo || "aluno";
  tela="home";
  }else tela="login";
  render();
 });
-
 </script>
 </body>
 </html>
