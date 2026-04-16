@@ -1,33 +1,25 @@
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
-  <meta charset="UTF-8">
-  <title>Portal Educacional Inclusivo</title>
+<meta charset="UTF-8">
+<title>Portal Educacional Completo</title>
 
-  <style>
-    body { font-family: Arial; background: #e3f2fd; margin: 0; }
-    .header { background:#2196f3; color:#fff; padding:15px; text-align:center; font-weight:bold; }
+<style>
+body{font-family:Arial;margin:0;background:#e3f2fd}
+.header{background:#2196f3;color:#fff;padding:15px;text-align:center;font-weight:bold}
+.banner{width:100%;height:100vh;object-fit:cover}
+.login-popup{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:#fff;padding:20px;border-radius:20px;width:280px}
+.container{padding:15px}
+.card{background:#fff;padding:15px;border-radius:20px;margin-bottom:15px}
+.btn{padding:12px;border:none;border-radius:12px;width:100%;margin-top:8px}
+.primary{background:#4caf50;color:#fff}
+.secondary{background:#ff9800;color:#fff}
+input,select,textarea{width:100%;padding:10px;margin:5px 0;border-radius:10px;border:1px solid #ccc}
+</style>
 
-    .banner { width:100%; height:100vh; object-fit:cover; }
-
-    .login-popup {
-      position:absolute; top:50%; left:50%; transform:translate(-50%, -50%);
-      background:white; padding:20px; border-radius:20px;
-      box-shadow:0 4px 15px rgba(0,0,0,0.2); width:280px;
-    }
-
-    .container { padding:15px; }
-    .card { background:#fff; padding:15px; border-radius:20px; margin-bottom:15px; }
-
-    .btn { padding:12px; border:none; border-radius:12px; width:100%; margin-top:8px; }
-    .primary{ background:#4caf50; color:#fff; }
-    .secondary{ background:#ff9800; color:#fff; }
-
-    input { width:100%; padding:10px; margin:5px 0; border-radius:10px; border:1px solid #ccc; }
-  </style>
-
-  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 </head>
 <body>
 
@@ -36,178 +28,133 @@
 
 <script>
 const firebaseConfig = {
-  apiKey: "AIzaSyB62sPHJ7TxqSAD0PXHHOktfQfs0Sv8FWs",
-  authDomain: "portal-educacao-635cd.firebaseapp.com",
-  projectId: "portal-educacao-635cd",
+ apiKey:"AIzaSyB62sPHJ7TxqSAD0PXHHOktfQfs0Sv8FWs",
+ authDomain:"portal-educacao-635cd.firebaseapp.com",
+ projectId:"portal-educacao-635cd"
 };
 
 firebase.initializeApp(firebaseConfig);
-const auth = firebase.auth();
+const auth=firebase.auth();
+const db=firebase.firestore();
 
-let tela = "login";
-let tipoUsuario = null;
+let tela="login";
+let tipoUsuario=null;
+let alunoAtual=null;
 
 function login(){
-  const email = document.getElementById("email").value;
-  const senha = document.getElementById("senha").value;
-
-  auth.signInWithEmailAndPassword(email, senha)
-    .then(()=>{
-      tela = "home";
-      render();
-    })
-    .catch(e=>alert(e.message));
+ const email=user.value;
+ const senha=pass.value;
+ auth.signInWithEmailAndPassword(email,senha)
+ .then(()=>{})
+ .catch(e=>alert(e.message));
 }
 
-function cadastrar(){
-  const email = document.getElementById("email").value;
-  const senha = document.getElementById("senha").value;
-
-  if(senha.length < 8){
-    alert("Senha mínima de 8 caracteres"); return;
-  }
-
-  auth.createUserWithEmailAndPassword(email, senha)
-    .then(()=>{
-      alert("Usuário criado!");
-    })
-    .catch(e=>alert(e.message));
-}
+function logout(){auth.signOut();}
 
 function recuperarSenha(){
-  const email = document.getElementById("emailRec").value;
-
-  auth.sendPasswordResetEmail(email)
-    .then(()=>alert("Email de recuperação enviado!"))
-    .catch(e=>alert(e.message));
+ auth.sendPasswordResetEmail(emailRec.value)
+ .then(()=>alert("Email enviado"))
+ .catch(e=>alert(e.message));
 }
 
-function logout(){
-  auth.signOut().then(()=>{
-    tela = "login";
-    render();
-  });
+async function cadastrarAluno(){
+ const nome=nomeAluno.value;
+ const classe=classeAluno.value;
+ const email=loginAluno.value;
+ const senha="12345678";
+
+ await auth.createUserWithEmailAndPassword(email,senha);
+
+ await db.collection("alunos").add({
+  nome,classe,email,progresso:[],materiais:[]
+ });
+
+ alert("Aluno criado! Senha padrão: 12345678");
 }
 
-auth.onAuthStateChanged(async user=>{
-  if(user){
-    const email = user.email;
-
-    if(email === "prof@escola.com"){
-      tipoUsuario = "prof";
-    } else {
-      tipoUsuario = "aluno";
-    }
-
-    tela="home";
-  } else {
-    tela="login";
-  }
-  render();
-});
-
-function abrirSecao(tipo){
-  const secao = document.getElementById('secao');
-
-  if(tipo === 'alunos'){
-    secao.innerHTML = `
-      <div class="card">
-        <h3>👨‍🎓 Alunos cadastrados</h3>
-        <p>Aqui você poderá adicionar e visualizar alunos.</p>
-      </div>`;
-  }
-
-  if(tipo === 'materiais'){
-    secao.innerHTML = `
-      <div class="card">
-        <h3>📎 Materiais</h3>
-        <input type="file">
-        <button class="btn primary">Enviar material</button>
-      </div>`;
-  }
-
-  if(tipo === 'progresso'){
-    secao.innerHTML = `
-      <div class="card">
-        <h3>📊 Progresso dos alunos</h3>
-        <textarea placeholder="Registrar evolução..."></textarea>
-        <button class="btn primary">Salvar</button>
-      </div>`;
-  }
+async function carregarAlunos(){
+ const snap=await db.collection("alunos").get();
+ return snap.docs.map(d=>({id:d.id,...d.data()}));
 }
 
 function render(){
-  const app = document.getElementById("app");
+ const app=document.getElementById("app");
 
-  if(tela === "login"){
-    app.innerHTML = `
-      <div style="position:relative">
-        <img class="banner" src="https://images.unsplash.com/photo-1588072432836-e10032774350">
+ if(tela==="login"){
+ app.innerHTML=`
+ <div style="position:relative">
+ <img class="banner" src="https://images.unsplash.com/photo-1588072432836-e10032774350">
+ <div class="login-popup">
+ <h3>🔐 Login</h3>
+ <input id="user" placeholder="Email">
+ <input id="pass" type="password" placeholder="Senha">
+ <button class="btn primary" onclick="login()">Entrar</button>
+ <button class="btn" onclick="tela='recuperar';render()">Esqueci senha</button>
+ </div>
+ </div>`;
+ return;
+ }
 
-        <div class="login-popup">
-          <h3>🔐 Login</h3>
-          <input id="email" placeholder="Email">
-          <input id="senha" type="password" placeholder="Senha">
-          <button class="btn primary" onclick="login()">Entrar</button>
-          <button class="btn secondary" onclick="cadastrar()">Cadastrar</button>
-          <button class="btn" onclick="tela='recuperar'; render()">Esqueci a senha</button>
-        </div>
-      </div>
-    `;
-    return;
-  }
+ if(tela==="recuperar"){
+ app.innerHTML=`
+ <div class="container">
+ <div class="card">
+ <h2>Recuperar senha</h2>
+ <input id="emailRec" placeholder="Email">
+ <button class="btn primary" onclick="recuperarSenha()">Enviar</button>
+ <button class="btn secondary" onclick="tela='login';render()">Voltar</button>
+ </div></div>`;
+ return;
+ }
 
-  if(tela === "recuperar"){
-    app.innerHTML = `
-      <div class="container">
-        <div class="card">
-          <h2>📧 Recuperar senha</h2>
-          <input id="emailRec" placeholder="Digite seu email">
-          <button class="btn primary" onclick="recuperarSenha()">Enviar email</button>
-          <button class="btn secondary" onclick="tela='login'; render()">Voltar</button>
-        </div>
-      </div>
-    `;
-    return;
-  }
+ if(tipoUsuario==="prof"){
+ app.innerHTML=`
+ <div class="container">
+ <button class="btn secondary" onclick="logout()">Sair</button>
+ <div class="card">
+ <h2>👩‍🏫 Professor</h2>
+ 
+ <h3>➕ Cadastrar aluno</h3>
+ <input id="nomeAluno" placeholder="Nome">
+ <input id="classeAluno" placeholder="Turma">
+ <input id="loginAluno" placeholder="Email do aluno">
+ <button class="btn primary" onclick="cadastrarAluno()">Cadastrar</button>
+ 
+ <h3>📂 Alunos</h3>
+ <div id="lista"></div>
+ </div>
+ </div>`;
 
-  if(tela === "home"){
+ carregarAlunos().then(alunos=>{
+ document.getElementById("lista").innerHTML=
+ alunos.map(a=>`<div class='card'>${a.nome} - ${a.classe}</div>`).join("");
+ });
 
-    if(tipoUsuario === "prof"){
-      app.innerHTML = `
-        <div class="container">
-          <button class="btn secondary" onclick="logout()">🚪 Sair</button>
-          <div class="card">
-            <h2>👩‍🏫 Área do Professor</h2>
-            <p>Gerenciar alunos, materiais e progresso</p>
+ return;
+ }
 
-            <button class="btn primary" onclick="abrirSecao('alunos')">👨‍🎓 Gerenciar Alunos</button>
-            <button class="btn primary" onclick="abrirSecao('materiais')">📎 Materiais</button>
-            <button class="btn primary" onclick="abrirSecao('progresso')">📊 Progresso</button>
-
-            <div id="secao"></div>
-          </div>
-        </div>
-      `;
-      return;
-    }
-
-    if(tipoUsuario === "aluno"){
-      app.innerHTML = `
-        <div class="container">
-          <button class="btn secondary" onclick="logout()">🚪 Sair</button>
-          <div class="card">
-            <h2>👨‍👩‍👧 Área da Família</h2>
-            <p>Acompanhar atividades e progresso</p>
-          </div>
-        </div>
-      `;
-      return;
-    }
-
-  }
+ if(tipoUsuario==="aluno"){
+ app.innerHTML=`
+ <div class="container">
+ <button class="btn secondary" onclick="logout()">Sair</button>
+ <div class="card">
+ <h2>👨‍👩‍👧 Área da Família</h2>
+ <p>Visualizar progresso e materiais</p>
+ </div>
+ </div>`;
+ }
 }
-</script>
 
+auth.onAuthStateChanged(async user=>{
+ if(user){
+ if(user.email==="prof@escola.com") tipoUsuario="prof";
+ else tipoUsuario="aluno";
+ tela="home";
+ }
+ else tela="login";
+ render();
+});
+
+</script>
 </body>
 </html>
