@@ -6,59 +6,28 @@
 
   <style>
     body { font-family: Arial; background: #e3f2fd; margin: 0; }
-
     .header { background:#2196f3; color:#fff; padding:15px; text-align:center; font-weight:bold; }
 
-    .banner-container {
-      position: relative;
-    }
-
-    .banner {
-      width:100%;
-      height:100vh;
-      object-fit:cover;
-    }
+    .banner { width:100%; height:100vh; object-fit:cover; }
 
     .login-popup {
-      position:absolute;
-      top:50%;
-      left:50%;
-      transform:translate(-50%, -50%);
-      background:white;
-      padding:20px;
-      border-radius:20px;
-      box-shadow:0 4px 15px rgba(0,0,0,0.2);
-      width:280px;
-      transition:0.3s;
-    }
-
-    .login-popup.minimized {
-      height:50px;
-      overflow:hidden;
-      cursor:pointer;
+      position:absolute; top:50%; left:50%; transform:translate(-50%, -50%);
+      background:white; padding:20px; border-radius:20px;
+      box-shadow:0 4px 15px rgba(0,0,0,0.2); width:280px;
     }
 
     .container { padding:15px; }
-
-    .card { background:#fff; padding:15px; border-radius:20px; margin-bottom:15px; box-shadow:0 4px 10px rgba(0,0,0,.1);}    
+    .card { background:#fff; padding:15px; border-radius:20px; margin-bottom:15px; }
 
     .btn { padding:12px; border:none; border-radius:12px; width:100%; margin-top:8px; }
     .primary{ background:#4caf50; color:#fff; }
     .secondary{ background:#ff9800; color:#fff; }
-    .audio{ background:#9c27b0; color:#fff; }
 
     input { width:100%; padding:10px; margin:5px 0; border-radius:10px; border:1px solid #ccc; }
-
-    .grid{ display:grid; grid-template-columns:repeat(2,1fr); gap:8px; }
-
-    img{ width:100%; border-radius:10px; }
-
-    .section{ margin-top:10px; padding:10px; background:#f1f8ff; border-radius:10px; }
-
   </style>
 
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 </head>
 <body>
 
@@ -70,86 +39,108 @@ const firebaseConfig = {
   apiKey: "AIzaSyB62sPHJ7TxqSAD0PXHHOktfQfs0Sv8FWs",
   authDomain: "portal-educacao-635cd.firebaseapp.com",
   projectId: "portal-educacao-635cd",
-  storageBucket: "portal-educacao-635cd.firebasestorage.app",
-  messagingSenderId: "67969011586",
-  appId: "1:67969011586:web:26e169d4f5eefd2dfb099b"
 };
 
 firebase.initializeApp(firebaseConfig);
-const db = firebase.firestore();
+const auth = firebase.auth();
 
-let alunos = [];
-let usuarioLogado = null;
-let loginMin = false;
-
-function toggleLogin(){
-  loginMin = !loginMin;
-  render();
-}
-
-function falar(t){ speechSynthesis.speak(new SpeechSynthesisUtterance(t)); }
-function logout(){ usuarioLogado=null; render(); }
-
-async function carregarAlunos(){
-  const snap = await db.collection("alunos").get();
-  alunos = snap.docs.map(d=>({id:d.id,...d.data()}));
-  render();
-}
+let tela = "login";
 
 function login(){
-  const u=document.getElementById("user").value;
-  const p=document.getElementById("pass").value;
+  const email = document.getElementById("email").value;
+  const senha = document.getElementById("senha").value;
 
-  if(u==="prof"&&p==="123"){
-    usuarioLogado={tipo:"prof"}; render(); return;
+  auth.signInWithEmailAndPassword(email, senha)
+    .then(()=>{
+      tela = "home";
+      render();
+    })
+    .catch(e=>alert(e.message));
+}
+
+function cadastrar(){
+  const email = document.getElementById("email").value;
+  const senha = document.getElementById("senha").value;
+
+  if(senha.length < 8){
+    alert("Senha mínima de 8 caracteres"); return;
   }
 
-  const fam = alunos.find(a=>a.login===u&&a.senha===p);
-  if(fam){ usuarioLogado={tipo:"fam",aluno:fam}; render(); }
-  else alert("Login inválido");
+  auth.createUserWithEmailAndPassword(email, senha)
+    .then(()=>{
+      alert("Usuário criado!");
+    })
+    .catch(e=>alert(e.message));
 }
+
+function recuperarSenha(){
+  const email = document.getElementById("emailRec").value;
+
+  auth.sendPasswordResetEmail(email)
+    .then(()=>alert("Email de recuperação enviado!"))
+    .catch(e=>alert(e.message));
+}
+
+function logout(){
+  auth.signOut().then(()=>{
+    tela = "login";
+    render();
+  });
+}
+
+auth.onAuthStateChanged(user=>{
+  if(user){ tela="home"; }
+  else tela="login";
+  render();
+});
 
 function render(){
   const app = document.getElementById("app");
 
-  if(!usuarioLogado){
-    app.innerHTML=`
-      <div class="banner-container">
+  if(tela === "login"){
+    app.innerHTML = `
+      <div style="position:relative">
         <img class="banner" src="https://images.unsplash.com/photo-1588072432836-e10032774350">
 
-        <div class="login-popup ${loginMin ? 'minimized' : ''}" onclick="${loginMin ? 'toggleLogin()' : ''}">
-          <h3 onclick="toggleLogin()">🔐 Login</h3>
-
-          ${!loginMin ? `
-            <input id="user" placeholder="Usuário">
-            <input id="pass" type="password" placeholder="Senha">
-            <button class="btn primary" onclick="login()">Entrar</button>
-          ` : ''}
+        <div class="login-popup">
+          <h3>🔐 Login</h3>
+          <input id="email" placeholder="Email">
+          <input id="senha" type="password" placeholder="Senha">
+          <button class="btn primary" onclick="login()">Entrar</button>
+          <button class="btn secondary" onclick="cadastrar()">Cadastrar</button>
+          <button class="btn" onclick="tela='recuperar'; render()">Esqueci a senha</button>
         </div>
       </div>
     `;
     return;
   }
-  }
 
-  if(usuarioLogado.tipo==="prof"){
-    app.innerHTML=`<div class="container">
-      <button class="btn secondary" onclick="logout()">🚪 Sair</button>
-      <div class="card"><h2>Área do Professor</h2><p>Bem-vindo ao painel do professor</p></div>
-    </div>`;
+  if(tela === "recuperar"){
+    app.innerHTML = `
+      <div class="container">
+        <div class="card">
+          <h2>📧 Recuperar senha</h2>
+          <input id="emailRec" placeholder="Digite seu email">
+          <button class="btn primary" onclick="recuperarSenha()">Enviar email</button>
+          <button class="btn secondary" onclick="tela='login'; render()">Voltar</button>
+        </div>
+      </div>
+    `;
     return;
   }
 
-  const a = usuarioLogado.aluno;
-  app.innerHTML=`<div class="container">
-    <button class="btn secondary" onclick="logout()">🚪 Sair</button>
-    <div class="card">
-      <h2 onclick="falar('${a.nome}')">👨‍👩‍👧 ${a.nome}</h2>
-    </div>
-  </div>`;
+  if(tela === "home"){
+    app.innerHTML = `
+      <div class="container">
+        <button class="btn secondary" onclick="logout()">🚪 Sair</button>
+        <div class="card">
+          <h2>🎉 Bem-vindo ao Portal</h2>
+          <p>Login realizado com sucesso!</p>
+        </div>
+      </div>
+    `;
+  }
 }
-
-carregarAlunos();
 </script>
 
 </body>
