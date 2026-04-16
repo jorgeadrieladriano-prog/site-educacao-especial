@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <title>Portal Educacional Inclusivo</title>
+  <style>
+    body { font-family: Arial; background: #e3f2fd; padding: 20px; }
+    .card { background: white; padding: 15px; border-radius: 15px; margin-bottom: 15px; }
+    input, button { padding: 10px; margin: 5px 0; width: 100%; }
+    img { width: 80px; border-radius: 10px; margin: 5px; }
+  </style>
+</head>
+<body>
+
+<div id="app"></div>
+
+<script>
+let alunos = JSON.parse(localStorage.getItem("alunos")) || [];
+let usuarioLogado = null;
+
+function falar(texto) {
+  const msg = new SpeechSynthesisUtterance(texto);
+  speechSynthesis.speak(msg);
+}
+
+function salvar() {
+  localStorage.setItem("alunos", JSON.stringify(alunos));
+}
+
+function login() {
+  const user = document.getElementById("user").value;
+  const pass = document.getElementById("pass").value;
+
+  if (user === "prof" && pass === "123") {
+    usuarioLogado = { tipo: "professor" };
+    render();
+    return;
+  }
+
+  const familia = alunos.find(a => a.login === user && a.senha === pass);
+  if (familia) {
+    usuarioLogado = { tipo: "familia", aluno: familia };
+    render();
+  } else {
+    alert("Login inválido");
+  }
+}
+
+function adicionarAluno() {
+  const nome = document.getElementById("nome").value;
+  const loginF = document.getElementById("loginF").value;
+  const senhaF = document.getElementById("senhaF").value;
+
+  alunos.push({ nome, login: loginF, senha: senhaF, fotos: [] });
+  salvar();
+  render();
+}
+
+function adicionarFoto(index, input) {
+  const file = input.files[0];
+  const url = URL.createObjectURL(file);
+  alunos[index].fotos.push(url);
+  salvar();
+  render();
+}
+
+function render() {
+  const app = document.getElementById("app");
+
+  if (!usuarioLogado) {
+    app.innerHTML = `
+      <div class="card">
+        <h2>🔐 Login</h2>
+        <input id="user" placeholder="Usuário">
+        <input id="pass" type="password" placeholder="Senha">
+        <button onclick="login()">Entrar</button>
+      </div>`;
+    return;
+  }
+
+  if (usuarioLogado.tipo === "professor") {
+    app.innerHTML = `
+      <div class="card">
+        <h2>👩‍🏫 Professor</h2>
+        <input id="nome" placeholder="Nome do aluno">
+        <input id="loginF" placeholder="Login da família">
+        <input id="senhaF" placeholder="Senha da família">
+        <button onclick="adicionarAluno()">Adicionar</button>
+      </div>
+
+      ${alunos.map((a, i) => `
+        <div class="card">
+          <h3 onclick="falar('${a.nome}')">👦 ${a.nome}</h3>
+          <input type="file" onchange="adicionarFoto(${i}, this)">
+          <div>
+            ${a.fotos.map(f => `<img src="${f}">`).join("")}
+          </div>
+        </div>
+      `).join("")}
+    `;
+    return;
+  }
+
+  const a = usuarioLogado.aluno;
+  app.innerHTML = `
+    <div class="card">
+      <h2 onclick="falar('${a.nome}')">👨‍👩‍👧 ${a.nome}</h2>
+      <button onclick="falar('Veja suas atividades')">🔊 Ouvir</button>
+      <div>
+        ${a.fotos.map(f => `<img src="${f}">`).join("")}
+      </div>
+    </div>
+  `;
+}
+
+render();
+</script>
+
+</body>
+</html>
