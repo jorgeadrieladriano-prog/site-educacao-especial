@@ -17,10 +17,13 @@ body{font-family:Arial;margin:0;background:#e3f2fd}
 input,textarea{width:100%;padding:8px;margin:5px 0;border-radius:8px;border:1px solid #ccc}
 </style>
 
+<!-- Firebase -->
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-storage-compat.js"></script>
+
+<!-- Gráfico -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 
@@ -30,96 +33,108 @@ input,textarea{width:100%;padding:8px;margin:5px 0;border-radius:8px;border:1px 
 <div id="app"></div>
 
 <script>
-const firebaseConfig={
- apiKey:"SUA_API_KEY",
- authDomain:"SEU_DOMINIO",
- projectId:"SEU_PROJETO",
- storageBucket:"SEU_BUCKET"
+// 🔥 CONFIG COMPLETA (CORRIGIDA)
+const firebaseConfig = {
+ apiKey: "AIzaSyB62sPHJ7TxqSAD0PXHHOktfQfs0Sv8FWs",
+ authDomain: "portal-educacao-635cd.firebaseapp.com",
+ projectId: "portal-educacao-635cd",
+ storageBucket: "portal-educacao-635cd.appspot.com",
+ messagingSenderId: "67969011586",
+ appId: "1:67969011586:web:26e169d4f5eefd2dfb099b"
 };
 
 firebase.initializeApp(firebaseConfig);
 
-const auth=firebase.auth();
-const db=firebase.firestore();
-const storage=firebase.storage();
+const auth = firebase.auth();
+const db = firebase.firestore();
+const storage = firebase.storage();
 
-let usuario=null;
-let tipoUsuario=null;
-let aba="dashboard";
-let alunos=[];
-let alunoSelecionado=null;
+let usuario = null;
+let tipoUsuario = null;
+let aba = "dashboard";
+let alunos = [];
+let alunoSelecionado = null;
 
+// LOGIN
 function login(){
- auth.signInWithEmailAndPassword(user.value,pass.value)
+ auth.signInWithEmailAndPassword(user.value, pass.value)
  .catch(e=>alert(e.message));
 }
 
+// LOGOUT
 function logout(){
  auth.signOut();
 }
 
+// CARREGAR ALUNOS
 async function carregarAlunos(){
- const snap=await db.collection("usuarios").where("tipo","==","aluno").get();
- alunos=snap.docs.map(d=>({id:d.id,...d.data()}));
+ const snap = await db.collection("usuarios").where("tipo","==","aluno").get();
+ alunos = snap.docs.map(d=>({id:d.id,...d.data()}));
 }
 
+// CADASTRAR ALUNO
 async function cadastrarAluno(){
  try{
-  const senhaPadrao="12345678";
+  const senhaPadrao = "12345678";
 
-  const cred=await auth.createUserWithEmailAndPassword(loginAluno.value,senhaPadrao);
+  const cred = await auth.createUserWithEmailAndPassword(loginAluno.value, senhaPadrao);
 
   await db.collection("usuarios").doc(cred.user.uid).set({
-   nome:nomeAluno.value,
-   classe:classeAluno.value,
-   email:loginAluno.value,
-   tipo:"aluno",
-   primeiroLogin:true
+   nome: nomeAluno.value,
+   classe: classeAluno.value,
+   email: loginAluno.value,
+   tipo: "aluno",
+   primeiroLogin: true
   });
 
-  alert("Aluno cadastrado com senha padrão: 12345678");
+  alert("Aluno criado com senha: 12345678");
 
+  // 🔥 VOLTA PARA PROFESSOR
   await auth.signOut();
+  alert("Faça login novamente como professor");
 
  }catch(e){
   alert(e.message);
  }
 }
 
-async function salvarProgresso(){
- if(!alunoSelecionado) return alert("Selecione um aluno");
-
- await db.collection("progresso").add({
-  alunoId:alunoSelecionado,
-  texto:progresso.value,
-  data:new Date()
- });
-
- alert("Progresso salvo");
-}
-
+// UPLOAD MATERIAL
 async function uploadMaterial(){
  if(!alunoSelecionado) return alert("Selecione um aluno");
 
- const file=arquivo.files[0];
+ const file = arquivo.files[0];
  if(!file) return alert("Escolha um arquivo");
 
- const ref=storage.ref("materiais/"+alunoSelecionado+"/"+file.name);
+ const ref = storage.ref("materiais/"+alunoSelecionado+"/"+file.name);
  await ref.put(file);
 
- const url=await ref.getDownloadURL();
+ const url = await ref.getDownloadURL();
 
  await db.collection("materiais").add({
-  alunoId:alunoSelecionado,
-  nome:file.name,
+  alunoId: alunoSelecionado,
+  nome: file.name,
   url
  });
 
  alert("Material enviado");
 }
 
+// SALVAR PROGRESSO
+async function salvarProgresso(){
+ if(!alunoSelecionado) return alert("Selecione um aluno");
+
+ await db.collection("progresso").add({
+  alunoId: alunoSelecionado,
+  texto: progresso.value,
+  data: new Date()
+ });
+
+ alert("Progresso salvo");
+}
+
+// ABAS
 function trocarAba(nova){
- aba=nova;
+ aba = nova;
  render();
 }
 
@@ -133,9 +148,10 @@ function renderTabs(){
  </div>`;
 }
 
+// DASHBOARD
 async function renderDashboard(){
- const snap=await db.collection("progresso").get();
- const total=snap.size;
+ const snap = await db.collection("progresso").get();
+ const total = snap.size;
 
  return `
  <div class='card'>
@@ -144,11 +160,12 @@ async function renderDashboard(){
  </div>`;
 }
 
+// RENDER
 async function render(){
- const app=document.getElementById("app");
+ const app = document.getElementById("app");
 
  if(!usuario){
- app.innerHTML=`
+ app.innerHTML = `
  <div class='container'>
  <div class='card'>
  <h2>Login</h2>
@@ -158,20 +175,20 @@ async function render(){
  </div>
  </div>`;
  return;
-}
-
- if(tipoUsuario==="prof"){
-
- await carregarAlunos();
-
- let conteudo="";
-
- if(aba==="dashboard"){
-  conteudo=await renderDashboard();
  }
 
- if(aba==="alunos"){
-  conteudo=`
+ // PROFESSOR
+ if(tipoUsuario === "prof"){
+ await carregarAlunos();
+
+ let conteudo = "";
+
+ if(aba === "dashboard"){
+  conteudo = await renderDashboard();
+ }
+
+ if(aba === "alunos"){
+  conteudo = `
   <div class='card'>
   <h3>Cadastrar aluno</h3>
   <input id='nomeAluno' placeholder='Nome'>
@@ -189,47 +206,48 @@ async function render(){
   `;
  }
 
- if(aba==="materiais"){
-  conteudo=alunoSelecionado?`
+ if(aba === "materiais"){
+  conteudo = alunoSelecionado ? `
   <div class='card'>
   <input type='file' id='arquivo'>
-  <button class='btn primary' onclick='uploadMaterial()'>Enviar Material</button>
+  <button class='btn primary' onclick='uploadMaterial()'>Enviar</button>
   </div>
-  `:"<div class='card'>Selecione um aluno</div>";
+  ` : "<div class='card'>Selecione um aluno</div>";
  }
 
- if(aba==="progresso"){
-  conteudo=alunoSelecionado?`
+ if(aba === "progresso"){
+  conteudo = alunoSelecionado ? `
   <div class='card'>
-  <textarea id='progresso' placeholder='Descreva o progresso'></textarea>
+  <textarea id='progresso'></textarea>
   <button class='btn primary' onclick='salvarProgresso()'>Salvar</button>
   </div>
-  `:"<div class='card'>Selecione um aluno</div>";
+  ` : "<div class='card'>Selecione um aluno</div>";
  }
 
- app.innerHTML=`
+ app.innerHTML = `
  <div class='container'>
  <button class='btn secondary' onclick='logout()'>Sair</button>
  ${renderTabs()}
  ${conteudo}
  </div>`;
 
- if(aba==="dashboard"){
-  const snap=await db.collection("progresso").get();
-  const total=snap.size;
+ if(aba === "dashboard"){
+  const snap = await db.collection("progresso").get();
+  const total = snap.size;
 
   new Chart(document.getElementById('grafico'),{
    type:'bar',
    data:{
     labels:['Registros'],
-    datasets:[{label:'Progresso',data:[total]}]
+    datasets:[{label:'Progresso', data:[total]}]
    }
   });
  }
  }
 
- if(tipoUsuario==="aluno"){
-  app.innerHTML=`
+ // ALUNO
+ if(tipoUsuario === "aluno"){
+  app.innerHTML = `
   <div class='container'>
   <button class='btn secondary' onclick='logout()'>Sair</button>
   <div class='card'>
@@ -240,26 +258,28 @@ async function render(){
  }
 }
 
+// AUTH
 auth.onAuthStateChanged(async u=>{
  if(u){
-  usuario=u;
+  usuario = u;
 
-  const doc=await db.collection("usuarios").doc(u.uid).get();
+  const doc = await db.collection("usuarios").doc(u.uid).get();
 
   if(doc.exists){
-   tipoUsuario=doc.data().tipo;
-  }else{
-   tipoUsuario="aluno";
+   tipoUsuario = doc.data().tipo;
+  } else {
+   tipoUsuario = "aluno";
   }
 
- }else{
-  usuario=null;
-  tipoUsuario=null;
+ } else {
+  usuario = null;
+  tipoUsuario = null;
  }
 
  render();
 });
 
+// 🔥 ESSENCIAL
 render();
 </script>
 
