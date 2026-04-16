@@ -120,12 +120,15 @@ async function render(){
  if(!usuario){
  app.innerHTML=`
  <div class='container'>
+ <div class='card'>
+ <h2>Login</h2>
  <input id='user' placeholder='Email'>
  <input id='pass' type='password' placeholder='Senha'>
  <button class='btn primary' onclick='login()'>Entrar</button>
+ </div>
  </div>`;
  return;
- }
+}
 
  if(tipoUsuario==="prof"){
  await carregarAlunos();
@@ -189,8 +192,10 @@ auth.onAuthStateChanged(async u=>{
  usuario=u;
  const doc=await db.collection("usuarios").doc(u.uid).get();
  tipoUsuario=doc.data()?.tipo||"aluno";
- }else usuario=null;
- render();
+}else{
+ usuario=null;
+ tipoUsuario=null;
+} render();
 });
 </script>
 
