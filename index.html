@@ -22,16 +22,17 @@ input,textarea{width:100%;padding:8px;margin:5px 0;border-radius:8px;border:1px 
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-</head>
 
+</head>
 <body>
 
 <div class="header">🏫 Portal Escolar SaaS</div>
 <div id="app"></div>
 
 <script>
+// 🔥 CONFIG FIREBASE (COLOQUE O SEU)
 const firebaseConfig={
-apiKey: "AIzaSyB62sPHJ7TxqSAD0PXHHOktfQfs0Sv8FWs",
+  apiKey: "AIzaSyB62sPHJ7TxqSAD0PXHHOktfQfs0Sv8FWs",
   authDomain: "portal-educacao-635cd.firebaseapp.com",
   projectId: "portal-educacao-635cd",
   storageBucket: "portal-educacao-635cd.firebasestorage.app",
@@ -41,36 +42,56 @@ apiKey: "AIzaSyB62sPHJ7TxqSAD0PXHHOktfQfs0Sv8FWs",
 };
 
 firebase.initializeApp(firebaseConfig);
+
 const auth=firebase.auth();
 const db=firebase.firestore();
 
+// ESTADO
 let user=null;
 let tipo=null;
 let aba="dashboard";
 let alunos=[];
 let selecionado=null;
 
+// LOGIN
 function login(){
  auth.signInWithEmailAndPassword(email.value,senha.value)
  .catch(e=>alert(e.message));
 }
 
+// LOGOUT
+function logout(){auth.signOut();}
+
+// RESET SENHA
+function mostrarReset(){
+ app.innerHTML=`
+ <div class="container">
+  <div class="card">
+   <h2>Recuperar senha</h2>
+   <input id="resetEmail" placeholder="Email">
+   <button class="btn primary" onclick="enviarReset()">Enviar</button>
+   <button class="btn secondary" onclick="render()">Voltar</button>
+  </div>
+ </div>`;
+}
+
+function enviarReset(){
+ auth.sendPasswordResetEmail(resetEmail.value)
+ .then(()=>{alert("Email enviado");render();})
+ .catch(e=>alert(e.message));
+}
+
+// CRIAR ADMIN
 function registrar(){
  auth.createUserWithEmailAndPassword(email.value,senha.value)
  .then(async cred=>{
-   await db.collection("usuarios").doc(cred.user.uid).set({
-     tipo:"admin"
-   });
+  await db.collection("usuarios").doc(cred.user.uid).set({
+   tipo:"admin"
+  });
  });
 }
 
-function logout(){auth.signOut();}
-
-async function carregarAlunos(){
- const snap=await db.collection("usuarios").where("tipo","==","aluno").get();
- alunos=snap.docs.map(d=>({id:d.id,...d.data()}));
-}
-
+// CRIAR USUÁRIOS
 async function criarUsuario(tipoUser){
  const nome=prompt("Nome:");
  const emailU=prompt("Email:");
@@ -83,9 +104,16 @@ async function criarUsuario(tipoUser){
   tipo:tipoUser
  });
 
- alert(tipoUser+" criado!");
+ alert(tipoUser+" criado");
 }
 
+// CARREGAR ALUNOS
+async function carregarAlunos(){
+ const snap=await db.collection("usuarios").where("tipo","==","aluno").get();
+ alunos=snap.docs.map(d=>({id:d.id,...d.data()}));
+}
+
+// MATERIAL
 async function adicionarMaterial(){
  const titulo=prompt("Título:");
  const link=prompt("Link:");
@@ -100,15 +128,55 @@ async function adicionarMaterial(){
  alert("Material adicionado");
 }
 
-async function salvarProgresso(){
+// REGISTRO DE ACESSO
+async function abrirMaterial(id,link){
  await db.collection("progresso").add({
-  alunoId:selecionado,
-  texto:prog.value,
+  alunoId:user.uid,
+  materialId:id,
+  acao:"acessou_material",
   data:new Date()
  });
- alert("Salvo");
+
+ window.open(link,"_blank");
 }
 
+// MATERIAIS ALUNO
+async function verMateriaisAluno(){
+ const snap=await db.collection("materiais")
+ .where("alunoId","==",user.uid).get();
+
+ return snap.docs.map(doc=>{
+  const m=doc.data();
+
+  return `
+  <div class="card">
+   <b>${m.titulo}</b>
+   <button class="btn primary"
+   onclick="abrirMaterial('${doc.id}','${m.link}')">
+   Abrir
+   </button>
+  </div>`;
+ }).join("");
+}
+
+// PROGRESSO PROFESSOR
+async function listarProgressoAluno(){
+ const snap=await db.collection("progresso")
+ .where("alunoId","==",selecionado).get();
+
+ return snap.docs.map(d=>{
+  const p=d.data();
+
+  return `
+  <div class="card">
+   📌 ${p.acao}
+   <br>
+   🕒 ${new Date(p.data.seconds*1000).toLocaleString()}
+  </div>`;
+ }).join("");
+}
+
+// TABS
 function tabs(){
  return `
  <div>
@@ -121,8 +189,8 @@ function tabs(){
 
 function trocar(n){aba=n;render();}
 
+// RENDER
 async function render(){
- const app=document.getElementById("app");
 
  if(!user){
  app.innerHTML=`
@@ -132,18 +200,35 @@ async function render(){
  <input id="email" placeholder="Email">
  <input id="senha" type="password" placeholder="Senha">
  <button class="btn primary" onclick="login()">Entrar</button>
+ <button class="btn secondary" onclick="mostrarReset()">Esqueci senha</button>
  <button class="btn secondary" onclick="registrar()">Criar Admin</button>
  </div>
  </div>`;
  return;
  }
 
+ // ALUNO
+ if(tipo==="aluno"){
+ const materiais=await verMateriaisAluno();
+
+ app.innerHTML=`
+ <div class="container">
+ <button class="btn danger" onclick="logout()">Sair</button>
+
+ <div class="card">
+ <h3>Seus materiais</h3>
+ ${materiais}
+ </div>
+ </div>`;
+ return;
+ }
+
+ // ADMIN / PROFESSOR
  await carregarAlunos();
 
  let conteudo="";
 
  if(aba=="dashboard"){
- const snap=await db.collection("progresso").get();
  conteudo=`<div class="card"><canvas id="grafico"></canvas></div>`;
  }
 
@@ -163,15 +248,14 @@ async function render(){
  if(aba=="materiais"){
  conteudo=selecionado?`
  <div class="card">
- <button class="btn primary" onclick="adicionarMaterial()">Adicionar Material</button>
+ <button class="btn primary" onclick="adicionarMaterial()">Adicionar material</button>
  </div>`:`<div class="card">Selecione aluno</div>`;
  }
 
  if(aba=="progresso"){
  conteudo=selecionado?`
  <div class="card">
- <textarea id="prog"></textarea>
- <button class="btn primary" onclick="salvarProgresso()">Salvar</button>
+ ${await listarProgressoAluno()}
  </div>`:`<div class="card">Selecione aluno</div>`;
  }
 
@@ -184,24 +268,26 @@ async function render(){
 
  if(aba=="dashboard"){
  const snap=await db.collection("progresso").get();
+
  new Chart(document.getElementById("grafico"),{
   type:"bar",
   data:{
-   labels:["Progresso"],
+   labels:["Acessos"],
    datasets:[{data:[snap.size]}]
   }
  });
  }
 }
 
+// AUTH
 auth.onAuthStateChanged(async u=>{
  if(u){
- user=u;
- const doc=await db.collection("usuarios").doc(u.uid).get();
- tipo=doc.data()?.tipo || "aluno";
+  user=u;
+  const doc=await db.collection("usuarios").doc(u.uid).get();
+  tipo=doc.data()?.tipo || "aluno";
  }else{
- user=null;
- tipo=null;
+  user=null;
+  tipo=null;
  }
  render();
 });
