@@ -22,15 +22,15 @@ input,textarea{width:100%;padding:8px;margin:5px 0;border-radius:8px;border:1px 
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
 </head>
+
 <body>
 
 <div class="header">🏫 Portal Escolar SaaS</div>
 <div id="app"></div>
 
 <script>
-// 🔥 CONFIG FIREBASE (COLOQUE O SEU)
+// 🔥 CONFIG FIREBASE
 const firebaseConfig={
   apiKey: "AIzaSyB62sPHJ7TxqSAD0PXHHOktfQfs0Sv8FWs",
   authDomain: "portal-educacao-635cd.firebaseapp.com",
@@ -91,7 +91,7 @@ function registrar(){
  });
 }
 
-// CRIAR USUÁRIOS
+// CRIAR USUÁRIO
 async function criarUsuario(tipoUser){
  const nome=prompt("Nome:");
  const emailU=prompt("Email:");
@@ -159,20 +159,47 @@ async function verMateriaisAluno(){
  }).join("");
 }
 
-// PROGRESSO PROFESSOR
+// ANALYTICS
+async function gerarAnalytics(){
+
+ const progressoSnap = await db.collection("progresso").get();
+
+ let acessosPorAluno = {};
+
+ progressoSnap.forEach(doc=>{
+   const p = doc.data();
+   acessosPorAluno[p.alunoId] = (acessosPorAluno[p.alunoId] || 0) + 1;
+ });
+
+ const ranking = Object.entries(acessosPorAluno)
+ .sort((a,b)=>b[1]-a[1]);
+
+ return ranking;
+}
+
+// PROGRESSO DETALHADO
 async function listarProgressoAluno(){
- const snap=await db.collection("progresso")
- .where("alunoId","==",selecionado).get();
 
- return snap.docs.map(d=>{
-  const p=d.data();
+ const snap = await db.collection("progresso")
+ .where("alunoId","==",selecionado)
+ .orderBy("data","desc")
+ .get();
 
-  return `
-  <div class="card">
-   📌 ${p.acao}
-   <br>
-   🕒 ${new Date(p.data.seconds*1000).toLocaleString()}
-  </div>`;
+ let ultimo = snap.docs[0];
+
+ return `
+ <div class="card">
+   <b>Último acesso:</b><br>
+   ${ultimo ? new Date(ultimo.data().data.seconds*1000).toLocaleString() : "Nenhum"}
+ </div>
+ ` + snap.docs.map(d=>{
+   const p=d.data();
+
+   return `
+   <div class="card">
+     ${p.acao}<br>
+     ${new Date(p.data.seconds*1000).toLocaleString()}
+   </div>`;
  }).join("");
 }
 
@@ -214,7 +241,6 @@ async function render(){
  app.innerHTML=`
  <div class="container">
  <button class="btn danger" onclick="logout()">Sair</button>
-
  <div class="card">
  <h3>Seus materiais</h3>
  ${materiais}
@@ -229,7 +255,19 @@ async function render(){
  let conteudo="";
 
  if(aba=="dashboard"){
- conteudo=`<div class="card"><canvas id="grafico"></canvas></div>`;
+ const ranking = await gerarAnalytics();
+
+ conteudo=`
+ <div class="card">
+   <h3>📊 Ranking de acessos</h3>
+   <canvas id="grafico"></canvas>
+ </div>
+
+ <div class="card">
+   <h3>🏆 Alunos mais ativos</h3>
+   ${ranking.map(r=>`<div>${r[0]} - ${r[1]} acessos</div>`).join("")}
+ </div>
+ `;
  }
 
  if(aba=="alunos"){
@@ -267,14 +305,14 @@ async function render(){
  </div>`;
 
  if(aba=="dashboard"){
- const snap=await db.collection("progresso").get();
+ const ranking = await gerarAnalytics();
+
+ const labels = ranking.map(r=>r[0].slice(0,6));
+ const valores = ranking.map(r=>r[1]);
 
  new Chart(document.getElementById("grafico"),{
   type:"bar",
-  data:{
-   labels:["Acessos"],
-   datasets:[{data:[snap.size]}]
-  }
+  data:{labels,datasets:[{label:"Acessos",data:valores}]}
  });
  }
 }
