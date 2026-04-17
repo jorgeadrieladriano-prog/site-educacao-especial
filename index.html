@@ -9,9 +9,21 @@
 body{margin:0;font-family:Arial;background:#f5f7fb}
 .layout{display:flex;height:100vh}
 .sidebar{width:220px;background:#1e293b;color:#fff;padding:15px}
-.sidebar button{display:block;width:100%;margin:5px 0;padding:10px;border:none;background:#334155;color:#fff;border-radius:8px;cursor:pointer}
-.content{flex:1;padding:20px}
-.card{background:#fff;padding:15px;border-radius:10px;margin-bottom:15px}
+.sidebar h3{margin-top:0}
+.sidebar button{
+ display:block;width:100%;margin:5px 0;padding:10px;
+ border:none;background:#334155;color:#fff;border-radius:8px;cursor:pointer
+}
+.sidebar button:hover{background:#475569}
+.content{flex:1;padding:20px;overflow:auto}
+.card{
+ background:#fff;padding:15px;border-radius:10px;
+ margin-bottom:15px;box-shadow:0 2px 6px rgba(0,0,0,0.1)
+}
+input,textarea{
+ width:100%;padding:10px;margin-top:5px;
+ border-radius:8px;border:1px solid #ccc
+}
 .btn{padding:10px;border:none;border-radius:8px;margin-top:5px;cursor:pointer}
 .primary{background:#22c55e;color:#fff}
 .secondary{background:#f59e0b;color:#fff}
@@ -29,24 +41,26 @@ body{margin:0;font-family:Arial;background:#f5f7fb}
 <div id="app"></div>
 
 <script>
+// 🔥 CONFIG FIREBASE (COLOQUE A SUA)
 const firebaseConfig = {
- apiKey: "AIzaSyB62sPHJ7TxqSAD0PXHHOktfQfs0Sv8FWs",
-  authDomain: "portal-educacao-635cd.firebaseapp.com",
-  projectId: "portal-educacao-635cd",
-  storageBucket: "portal-educacao-635cd.firebasestorage.app",
-  messagingSenderId: "67969011586",
-  appId: "1:67969011586:web:26e169d4f5eefd2dfb099b",
-  measurementId: "G-1SH0J24EG0"
+ apiKey: "SUA_API_KEY",
+ authDomain: "SEU_DOMINIO",
+ projectId: "SEU_PROJECT_ID",
+ storageBucket: "SEU_BUCKET"
 };
 
 firebase.initializeApp(firebaseConfig);
 
 const auth = firebase.auth();
 const db = firebase.firestore();
+const storage = firebase.storage();
 
+// STATE
 let usuario=null;
 let tipoUsuario=null;
 let aba="dashboard";
+let usuarios=[];
+let selecionado=null;
 
 // LOGIN
 function login(){
@@ -57,25 +71,28 @@ function login(){
  .catch(e=>alert(e.message));
 }
 
-// REGISTRO
+// REGISTRO AUTOMÁTICO
 async function registrar(){
- const email=document.getElementById("email").value;
- const senha=document.getElementById("senha").value;
+ try{
+  const email=document.getElementById("email").value;
+  const senha=document.getElementById("senha").value;
 
- const cred = await auth.createUserWithEmailAndPassword(email,senha);
+  const cred = await auth.createUserWithEmailAndPassword(email,senha);
 
- const adminCheck = await db.collection("usuarios").where("tipo","==","admin").get();
- const tipo = adminCheck.empty ? "admin" : "aluno";
+  const adminCheck = await db.collection("usuarios").where("tipo","==","admin").get();
+  const tipo = adminCheck.empty ? "admin" : "aluno";
 
- await db.collection("usuarios").doc(cred.user.uid).set({
-  email,
-  tipo
- });
+  await db.collection("usuarios").doc(cred.user.uid).set({
+   email,
+   tipo
+  });
 
- tipoUsuario = tipo;
- usuario = cred.user;
+  usuario = cred.user;
+  tipoUsuario = tipo;
 
- render();
+  render();
+
+ }catch(e){alert(e.message);}
 }
 
 // LOGOUT
@@ -87,16 +104,48 @@ function logout(){
 function menu(){
  return `
  <div class="sidebar">
- <h3>Portal</h3>
+ <h3>📘 Portal</h3>
  <button onclick="trocar('dashboard')">Dashboard</button>
+ <button onclick="trocar('usuarios')">Usuários</button>
+ <button onclick="trocar('materiais')">Materiais</button>
+ <button onclick="trocar('progresso')">Progresso</button>
  <button onclick="logout()">Sair</button>
  </div>`;
 }
 
-// TROCAR
+// TROCAR ABA
 function trocar(n){
  aba=n;
  render();
+}
+
+// CARREGAR USUÁRIOS
+async function carregarUsuarios(){
+ const snap = await db.collection("usuarios").get();
+ usuarios = snap.docs.map(d=>({id:d.id,...d.data()}));
+}
+
+// CRIAR USUÁRIO (ADMIN)
+async function criar(tipo){
+ try{
+  const email = prompt("Email:");
+  const senha = prompt("Senha:");
+
+  if(!email || !senha) return alert("Preencha tudo");
+
+  const cred = await auth.createUserWithEmailAndPassword(email, senha);
+
+  await db.collection("usuarios").doc(cred.user.uid).set({
+   email,
+   tipo
+  });
+
+  alert(tipo + " criado!");
+
+  await auth.signOut();
+  alert("Entre novamente como admin");
+
+ }catch(e){alert(e.message);}
 }
 
 // DASHBOARD
@@ -105,22 +154,48 @@ async function dashboard(){
 
  return `
  <div class="card">
- <h3>Total: ${snap.size}</h3>
+ <h3>Total registros: ${snap.size}</h3>
  <canvas id="grafico"></canvas>
  </div>`;
+}
+
+// UPLOAD
+async function upload(){
+ const file=document.getElementById("file").files[0];
+
+ if(!file) return alert("Selecione arquivo");
+
+ const ref = storage.ref("materiais/"+selecionado+"/"+file.name);
+ await ref.put(file);
+
+ alert("Material enviado!");
+}
+
+// SALVAR PROGRESSO
+async function salvar(){
+ const texto=document.getElementById("txt").value;
+
+ await db.collection("progresso").add({
+  usuarioId: selecionado,
+  texto,
+  data: new Date()
+ });
+
+ alert("Progresso salvo!");
 }
 
 // RENDER
 async function render(){
  const app=document.getElementById("app");
 
+ // LOGIN
  if(!usuario){
  app.innerHTML=`
  <div style="padding:20px">
  <div class="card">
  <h2>Login</h2>
- <input id="email" placeholder="Email"><br>
- <input id="senha" type="password" placeholder="Senha"><br>
+ <input id="email" placeholder="Email">
+ <input id="senha" type="password" placeholder="Senha">
  <button class="btn primary" onclick="login()">Entrar</button>
  <button class="btn secondary" onclick="registrar()">Criar Conta</button>
  </div>
@@ -128,7 +203,55 @@ async function render(){
  return;
  }
 
- let conteudo = await dashboard();
+ let conteudo="";
+
+ if(tipoUsuario==="admin" || tipoUsuario==="professor"){
+ await carregarUsuarios();
+
+ // DASHBOARD
+ if(aba==="dashboard"){
+ conteudo = await dashboard();
+ }
+
+ // USUÁRIOS
+ if(aba==="usuarios"){
+ conteudo = `
+ <div class="card">
+ <button class="btn primary" onclick="criar('aluno')">Criar Aluno</button>
+ <button class="btn secondary" onclick="criar('professor')">Criar Professor</button>
+ </div>
+
+ ${usuarios.map(u=>`
+ <div class="card">
+ ${u.email} (${u.tipo})
+ <button onclick="selecionado='${u.id}'">Selecionar</button>
+ </div>
+ `).join("")}`;
+ }
+
+ // MATERIAIS
+ if(aba==="materiais"){
+ conteudo = selecionado ? `
+ <div class="card">
+ <input type="file" id="file">
+ <button class="btn primary" onclick="upload()">Enviar</button>
+ </div>` : "Selecione um usuário na aba Usuários";
+ }
+
+ // PROGRESSO
+ if(aba==="progresso"){
+ conteudo = selecionado ? `
+ <div class="card">
+ <textarea id="txt" placeholder="Digite o progresso"></textarea>
+ <button class="btn primary" onclick="salvar()">Salvar</button>
+ </div>` : "Selecione um usuário na aba Usuários";
+ }
+ }
+
+ // ALUNO
+ if(tipoUsuario==="aluno"){
+ conteudo = `<div class="card">Área do aluno</div>`;
+ }
 
  app.innerHTML=`
  <div class="layout">
@@ -138,12 +261,21 @@ async function render(){
  </div>
  </div>`;
 
+ // GRÁFICO
+ if(aba==="dashboard"){
  const snap = await db.collection("progresso").get();
 
  new Chart(document.getElementById("grafico"),{
  type:"bar",
- data:{labels:["Progresso"],datasets:[{data:[snap.size]}]}
+ data:{
+  labels:["Progresso"],
+  datasets:[{
+   label:"Registros",
+   data:[snap.size]
+  }]
+ }
  });
+ }
 }
 
 // AUTH
@@ -156,6 +288,7 @@ auth.onAuthStateChanged(async u=>{
 
  }else{
   usuario=null;
+  tipoUsuario=null;
  }
 
  render();
