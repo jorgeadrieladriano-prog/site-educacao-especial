@@ -3,44 +3,34 @@
 <head>
 <meta charset="UTF-8">
 <title>Portal Escolar SaaS</title>
-<meta name="viewport" content="width=device-width, initial-scale=1">
 
 <style>
-body{margin:0;font-family:Arial;background:#f1f5f9}
-.layout{display:flex;height:100vh}
-.sidebar{width:230px;background:#0f172a;color:#fff;padding:15px}
-.sidebar h2{margin:0 0 10px}
-.sidebar button{
- width:100%;padding:10px;margin:5px 0;border:none;
- background:#1e293b;color:#fff;border-radius:8px;cursor:pointer
-}
-.content{flex:1;padding:20px;overflow:auto}
-.card{
- background:#fff;padding:15px;border-radius:10px;
- margin-bottom:15px;box-shadow:0 2px 6px rgba(0,0,0,0.1)
-}
-input,textarea{
- width:100%;padding:10px;margin-top:5px;border-radius:8px;border:1px solid #ccc
-}
-.btn{padding:10px;border:none;border-radius:8px;margin-top:5px;cursor:pointer}
-.primary{background:#22c55e;color:#fff}
-.secondary{background:#f59e0b;color:#fff}
+body{font-family:Arial;margin:0;background:#eef2f7}
+.header{background:#1e88e5;color:#fff;padding:15px;text-align:center;font-size:20px}
+.container{padding:15px}
+.card{background:#fff;padding:15px;border-radius:12px;margin-bottom:15px;box-shadow:0 2px 8px rgba(0,0,0,0.1)}
+.btn{padding:10px;border:none;border-radius:8px;width:100%;margin-top:5px;cursor:pointer}
+.primary{background:#4caf50;color:#fff}
+.secondary{background:#ff9800;color:#fff}
+.danger{background:#e53935;color:#fff}
+.tab{display:inline-block;padding:10px;background:#ccc;margin-right:5px;border-radius:8px;cursor:pointer}
+.active{background:#1e88e5;color:#fff}
+input,textarea{width:100%;padding:8px;margin:5px 0;border-radius:8px;border:1px solid #ccc}
 </style>
 
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-storage-compat.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 
 <body>
 
+<div class="header">🏫 Portal Escolar SaaS</div>
 <div id="app"></div>
 
 <script>
-// CONFIG FIREBASE
-const firebaseConfig = {
+const firebaseConfig={
 apiKey: "AIzaSyB62sPHJ7TxqSAD0PXHHOktfQfs0Sv8FWs",
   authDomain: "portal-educacao-635cd.firebaseapp.com",
   projectId: "portal-educacao-635cd",
@@ -51,208 +41,167 @@ apiKey: "AIzaSyB62sPHJ7TxqSAD0PXHHOktfQfs0Sv8FWs",
 };
 
 firebase.initializeApp(firebaseConfig);
+const auth=firebase.auth();
+const db=firebase.firestore();
 
-const auth = firebase.auth();
-const db = firebase.firestore();
-const storage = firebase.storage();
-
-// STATE
-let usuario=null;
+let user=null;
 let tipo=null;
 let aba="dashboard";
-let usuarios=[];
-let turmas=[];
+let alunos=[];
 let selecionado=null;
 
-// LOGIN
 function login(){
- auth.signInWithEmailAndPassword(email.value, senha.value)
+ auth.signInWithEmailAndPassword(email.value,senha.value)
  .catch(e=>alert(e.message));
 }
 
-// REGISTRO
-async function registrar(){
- const cred = await auth.createUserWithEmailAndPassword(email.value, senha.value);
-
- const adminCheck = await db.collection("usuarios").where("tipo","==","admin").get();
- const tipoUser = adminCheck.empty ? "admin" : "aluno";
-
- await db.collection("usuarios").doc(cred.user.uid).set({
-  email: email.value,
-  tipo: tipoUser
+function registrar(){
+ auth.createUserWithEmailAndPassword(email.value,senha.value)
+ .then(async cred=>{
+   await db.collection("usuarios").doc(cred.user.uid).set({
+     tipo:"admin"
+   });
  });
-}
-
-// MENU
-function menu(){
- return `
- <div class="sidebar">
- <h2>🏫 SaaS</h2>
- <button onclick="trocar('dashboard')">Dashboard</button>
- <button onclick="trocar('turmas')">Turmas</button>
- <button onclick="trocar('usuarios')">Usuários</button>
- <button onclick="trocar('materiais')">Materiais</button>
- <button onclick="trocar('progresso')">Progresso</button>
- <button onclick="logout()">Sair</button>
- </div>`;
 }
 
 function logout(){auth.signOut();}
-function trocar(n){aba=n; render();}
 
-// LOAD
-async function carregar(){
- const u = await db.collection("usuarios").get();
- usuarios = u.docs.map(d=>({id:d.id,...d.data()}));
-
- const t = await db.collection("turmas").get();
- turmas = t.docs.map(d=>({id:d.id,...d.data()}));
+async function carregarAlunos(){
+ const snap=await db.collection("usuarios").where("tipo","==","aluno").get();
+ alunos=snap.docs.map(d=>({id:d.id,...d.data()}));
 }
 
-// CRIAR TURMA
-async function criarTurma(){
- const nome = prompt("Nome da turma:");
- const prof = prompt("ID do professor:");
+async function criarUsuario(tipoUser){
+ const nome=prompt("Nome:");
+ const emailU=prompt("Email:");
 
- await db.collection("turmas").add({
-  nome,
-  professorId: prof
- });
-
- alert("Turma criada!");
-}
-
-// CRIAR USUÁRIO
-async function criar(tipoUser){
- const email = prompt("Email:");
- const senha = prompt("Senha:");
-
- const cred = await auth.createUserWithEmailAndPassword(email, senha);
+ const cred=await auth.createUserWithEmailAndPassword(emailU,"12345678");
 
  await db.collection("usuarios").doc(cred.user.uid).set({
-  email,
-  tipo: tipoUser
+  nome,
+  email:emailU,
+  tipo:tipoUser
  });
 
- await auth.signOut();
+ alert(tipoUser+" criado!");
 }
 
-// DASHBOARD
-async function dashboard(){
- const prog = await db.collection("progresso").get();
+async function adicionarMaterial(){
+ const titulo=prompt("Título:");
+ const link=prompt("Link:");
 
+ await db.collection("materiais").add({
+  titulo,
+  link,
+  alunoId:selecionado,
+  criado:new Date()
+ });
+
+ alert("Material adicionado");
+}
+
+async function salvarProgresso(){
+ await db.collection("progresso").add({
+  alunoId:selecionado,
+  texto:prog.value,
+  data:new Date()
+ });
+ alert("Salvo");
+}
+
+function tabs(){
  return `
- <div class="card">
- <h3>Total progresso: ${prog.size}</h3>
- <canvas id="grafico"></canvas>
+ <div>
+ <span class="tab ${aba=="dashboard"?"active":""}" onclick="trocar('dashboard')">📊</span>
+ <span class="tab ${aba=="alunos"?"active":""}" onclick="trocar('alunos')">👨‍🎓</span>
+ <span class="tab ${aba=="materiais"?"active":""}" onclick="trocar('materiais')">📂</span>
+ <span class="tab ${aba=="progresso"?"active":""}" onclick="trocar('progresso')">📈</span>
  </div>`;
 }
 
-// RENDER
-async function render(){
- const app = document.getElementById("app");
+function trocar(n){aba=n;render();}
 
- if(!usuario){
+async function render(){
+ const app=document.getElementById("app");
+
+ if(!user){
  app.innerHTML=`
- <div style="padding:20px">
+ <div class="container">
  <div class="card">
+ <h2>Login</h2>
  <input id="email" placeholder="Email">
  <input id="senha" type="password" placeholder="Senha">
  <button class="btn primary" onclick="login()">Entrar</button>
- <button class="btn secondary" onclick="registrar()">Criar Conta</button>
+ <button class="btn secondary" onclick="registrar()">Criar Admin</button>
  </div>
  </div>`;
  return;
  }
 
- await carregar();
+ await carregarAlunos();
 
  let conteudo="";
 
- if(aba==="dashboard") conteudo = await dashboard();
-
- if(aba==="turmas"){
- conteudo=`
- <div class="card">
- <button class="btn primary" onclick="criarTurma()">Criar Turma</button>
- </div>
-
- ${turmas.map(t=>`
- <div class="card">${t.nome}</div>
- `).join("")}`;
+ if(aba=="dashboard"){
+ const snap=await db.collection("progresso").get();
+ conteudo=`<div class="card"><canvas id="grafico"></canvas></div>`;
  }
 
- if(aba==="usuarios"){
+ if(aba=="alunos"){
  conteudo=`
  <div class="card">
- <button class="btn primary" onclick="criar('aluno')">Criar Aluno</button>
- <button class="btn secondary" onclick="criar('professor')">Criar Professor</button>
+ <button class="btn primary" onclick="criarUsuario('aluno')">+ Aluno</button>
+ <button class="btn secondary" onclick="criarUsuario('professor')">+ Professor</button>
  </div>
-
- ${usuarios.map(u=>`
+ ${alunos.map(a=>`
  <div class="card">
- ${u.email} (${u.tipo})
- <button onclick="selecionado='${u.id}'">Selecionar</button>
+ ${a.nome||"Sem nome"}
+ <button class="btn secondary" onclick="selecionado='${a.id}'">Selecionar</button>
  </div>`).join("")}`;
  }
 
- if(aba==="materiais"){
- conteudo= selecionado ? `
+ if(aba=="materiais"){
+ conteudo=selecionado?`
  <div class="card">
- <input type="file" id="file">
- <button class="btn primary" onclick="upload()">Enviar</button>
- </div>`:"Selecione usuário";
+ <button class="btn primary" onclick="adicionarMaterial()">Adicionar Material</button>
+ </div>`:`<div class="card">Selecione aluno</div>`;
  }
 
- if(aba==="progresso"){
- conteudo=`
+ if(aba=="progresso"){
+ conteudo=selecionado?`
  <div class="card">
- <textarea id="txt"></textarea>
- <button class="btn primary" onclick="salvar()">Salvar</button>
- </div>`;
+ <textarea id="prog"></textarea>
+ <button class="btn primary" onclick="salvarProgresso()">Salvar</button>
+ </div>`:`<div class="card">Selecione aluno</div>`;
  }
 
  app.innerHTML=`
- <div class="layout">
- ${menu()}
- <div class="content">${conteudo}</div>
+ <div class="container">
+ <button class="btn danger" onclick="logout()">Sair</button>
+ ${tabs()}
+ ${conteudo}
  </div>`;
 
- if(aba==="dashboard"){
- const prog = await db.collection("progresso").get();
-
+ if(aba=="dashboard"){
+ const snap=await db.collection("progresso").get();
  new Chart(document.getElementById("grafico"),{
   type:"bar",
-  data:{labels:["Progresso"],datasets:[{data:[prog.size]}]}
+  data:{
+   labels:["Progresso"],
+   datasets:[{data:[snap.size]}]
+  }
  });
  }
 }
 
-// UPLOAD
-async function upload(){
- const file=fileInput.files[0];
- const ref=storage.ref("materiais/"+selecionado+"/"+file.name);
- await ref.put(file);
- alert("Enviado");
-}
-
-// PROGRESSO
-async function salvar(){
- await db.collection("progresso").add({
-  usuarioId: selecionado,
-  texto: txt.value
- });
- alert("Salvo");
-}
-
-// AUTH
 auth.onAuthStateChanged(async u=>{
  if(u){
-  usuario=u;
-  const doc = await db.collection("usuarios").doc(u.uid).get();
-  tipo = doc.data()?.tipo;
+ user=u;
+ const doc=await db.collection("usuarios").doc(u.uid).get();
+ tipo=doc.data()?.tipo || "aluno";
  }else{
-  usuario=null;
+ user=null;
+ tipo=null;
  }
  render();
 });
